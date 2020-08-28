@@ -1,0 +1,20 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Nautilus Desktop</title>
+    <language>en</language>
+
+    <item>
+      <title>Version 2.0.0</title>
+      <pubDate>Thu, 27 Aug 2020 15:07:22 +0000</pubDate>
+      <sparkle:minimumSystemVersion>10.12</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://alt-tab-macos.netlify.app/changelog-bare</sparkle:releaseNotesLink>
+      <enclosure
+        url="https://github.com/lwouis/alt-tab-macos/releases/download/v6.0.0/AltTab-6.0.0.zip"
+        sparkle:version="6.0.0"
+        sparkle:shortVersionString="6.0.0"
+        sparkle:edSignature="6qNJeGCPdNuGEEymUhmLiB3c3vR1ELykOZ8j+HsHZhpo36IE7zTb7q9XYFhaTZrZCKkOA6rA7TWpH7Yncea1BA==" length="7204576"
+        type="application/octet-stream"/>
+    </item>
+</channel>
+</rss>
