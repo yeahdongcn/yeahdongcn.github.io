@@ -5,6 +5,7 @@
         <item>
             <title>1.0.1</title>
             <pubDate>Tue, 01 Sep 2020 20:13:15 +0800</pubDate>
+            <sparkle:releaseNotesLink>https://yeahdongcn.github.io/</sparkle:releaseNotesLink>
             <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
             <enclosure url="https://raw.githubusercontent.com/yeahdongcn/yeahdongcn.github.io/master/updates/NautilusDesktop/NautilusUI-1198.zip" sparkle:version="1198" sparkle:shortVersionString="1.0.1" length="6066339" type="application/octet-stream" sparkle:edSignature="dc1JJfDdeD6ivem4MKA22bSvd91AFo+NKnBP23vrRrR+5xa4IStrpsVkeARRn7DVInGcP8BKuS0gQ4eTW2vIAA=="/>
         </item>
