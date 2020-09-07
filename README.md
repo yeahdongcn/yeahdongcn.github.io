@@ -4,13 +4,18 @@ The missing `vctl` UI for macOS.
 
 <img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-2x.png" width="320">
 
+## Todos
+
+ - Write MORE Tests
+ - Add Night Mode
+
 ## Requirements
 
 Nautilus Desktop requires macOS 10.15 to run.
 
 ## Installation
 
-## Tech
+## Acknowledgments
 
 Nautilus Desktop uses a number of open source projects to work properly:
 
@@ -18,11 +23,6 @@ Nautilus Desktop uses a number of open source projects to work properly:
 * [LetsMove] - A sample project that demonstrates how to move a running Mac OS X application to the Applications folder.
 * [LoginItemKit] - A simple Swift package to add non-sandboxed macOS applications to user login items.
 * [Yams] - A sweet and swifty [YAML](http://yaml.org/) parser built on [LibYAML](https://github.com/yaml/libyaml).
-
-## Todos
-
- - Write MORE Tests
- - Add Night Mode
 
 License
 ----
