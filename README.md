@@ -2,7 +2,7 @@
 
 The missing `vctl` UI for macOS.
 
-<img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-1x.png">
+<img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-2x.png">
 
 ## Requirements
 
