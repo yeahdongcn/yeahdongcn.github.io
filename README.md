@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/yeahdongcn/UIColor-Hex-Swift/master/home-hero-swift-hero.png">
+  <img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-2x.png">
 </p>
 
 # Nautilus Desktop
