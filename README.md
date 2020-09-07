@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-2x.png">
+  <img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-1x.png">
 </p>
 
 # Nautilus Desktop
