@@ -2,15 +2,15 @@
 
 The missing `vctl` UI for macOS.
 
-<img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-1x.png" alt="Sparkle shows familiar update window with release notes">
+<img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app-1x.png">
 
 ## Requirements
 
 Nautilus Desktop requires macOS 10.15 to run.
 
-### Installation
+## Installation
 
-### Tech
+## Tech
 
 Nautilus Desktop uses a number of open source projects to work properly:
 
@@ -19,7 +19,7 @@ Nautilus Desktop uses a number of open source projects to work properly:
 * [LoginItemKit] - A simple Swift package to add non-sandboxed macOS applications to user login items.
 * [Yams] - A sweet and swifty [YAML](http://yaml.org/) parser built on [LibYAML](https://github.com/yaml/libyaml).
 
-### Todos
+## Todos
 
  - Write MORE Tests
  - Add Night Mode
