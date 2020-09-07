@@ -17,7 +17,7 @@ Nautilus Desktop requires macOS 10.15 to run.
 
  - Download and unzip the latest release: [X](http://x.com/)
  - `Nautilus Desktop.app` is signed with the `Apple Development` certificate, so for the first time you open this app, you need to follow [Open a Mac app from an unidentified developer](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac) to run it.
- - To sponsor us to enroll in the Apple Developer Program, please click [this](xxx).
+ - To sponsor us to enroll in the Apple Developer Program, please click [this](paypal.me/yexd).
 
 ## Acknowledgments
 
