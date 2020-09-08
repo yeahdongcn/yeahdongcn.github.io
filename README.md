@@ -4,6 +4,11 @@ The missing `vctl` UI for macOS.
 
 <img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app.png" width="320">
 
+## Features
+
+ - Manage the lifecycle of `vctl` container engine
+ - Configure the virtual machine for running containers and K8s clusters
+ 
 ## Todos
 
  - Manage images/containers/volumes
