@@ -1,6 +1,6 @@
 # Nautilus Desktop ![platform](https://img.shields.io/badge/platform-macOS-999999.svg?logo=apple) ![swift](https://img.shields.io/badge/Swift-5-FA7343.svg?logo=swift) ![license](https://img.shields.io/badge/license-MIT-blue.svg) [![Say Thanks!](https://img.shields.io/badge/Say%20Thanks-!-1EAEDB.svg)](https://saythanks.io/to/yeahdongcn%40gmail.com) 
 
-The missing `vctl` UI for macOS.
+The missing [vctl](https://github.com/VMwareFusion/nautilus) UI for macOS.
 
 <img src="https://github.com/yeahdongcn/yeahdongcn.github.io/raw/master/images/app.png" width="320">
 
