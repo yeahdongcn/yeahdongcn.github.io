@@ -6,8 +6,13 @@ The missing `vctl` UI for macOS.
 
 ## Features
 
- - Manage the lifecycle of `vctl` container engine
- - Configure the virtual machine for running containers and K8s clusters
+ - Easy Access
+     - Handy management of vctl container engine through UI & Touch Bar.
+     - Configure your virtual machines for containers and Kubernetes cluster without CLI.
+ - Multi-language Support
+     - Currently support English & Simplified Chinese. More languages are underway.
+ - Light & Free
+     - It's light and it's free.
  
 ## Todos
 
