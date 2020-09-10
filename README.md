@@ -25,7 +25,7 @@ Nautilus Desktop requires macOS 10.15 to run.
 
 ## Installation
 
- - Download and unzip the latest release: [v1.0.0 (1378)](https://github.com/yeahdongcn/yeahdongcn.github.io/releases/tag/v1.0.0)
+ - Download and unzip the latest release: [v1.0.1 (1396)](https://github.com/yeahdongcn/yeahdongcn.github.io/releases/tag/v1.0.1)
  - `Nautilus Desktop.app` is signed with the `Apple Development` certificate, so for the first time you open this app, you need to follow [Open a Mac app from an unidentified developer](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac) to run it
  - To sponsor us to enroll in the Apple Developer Program, please click [![paypal](https://img.shields.io/badge/this-00457C.svg?logo=paypal)](https://paypal.me/yexd)
 
