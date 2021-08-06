@@ -1,0 +1,2 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([[43],{3957:function(e,t,n){"use strict";n.r(t);var r=n(0),component=Object(r.a)({},(function(){var e=this.$createElement;this._self._c;return this._m(0)}),[function(){var e=this.$createElement,t=this._self._c||e;return t("div",[t("header",[t("h1",[this._v("Live Traffic Tap")])]),this._v(" "),t("h4",[this._v("(Table of requests and response code/speeds live updating as they come in)")])])}],!1,null,null,null);t.default=component.exports}}]);
+//# sourceMappingURL=tap.42668fc7d4c60ef59204.js.map
