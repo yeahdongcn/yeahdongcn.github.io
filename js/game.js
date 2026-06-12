@@ -1638,6 +1638,11 @@ function render() {
       c.drawImage(SPR.glowS(L.col, 18), L.x - 18, L.y - 18);
     }
   }
+  for (const cr of G.crates) { // loot crates pulse so they read as breakable
+    if (cr.hp <= 0 || !visible(cr.x, cr.y)) continue;
+    c.globalAlpha = 0.12 + 0.07 * Math.sin(G.rt * 3 + cr.x);
+    c.drawImage(SPR.glowS('#f9f002', 9), cr.x - 9, cr.y - 13);
+  }
   for (const b of G.bullets) {
     c.globalAlpha = 0.5;
     c.drawImage(SPR.glowS(b.col, 5), b.x - 5, b.y - 5);
