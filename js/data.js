@@ -154,6 +154,8 @@ const TIPS = [
   'ENEMIES HAVE EYES. STAY BEHIND THEM OR BREAK LINE OF SIGHT',
   'LIT DOORWAYS CAN BE ENTERED. HIDEOUTS HOLD LOOT — AND GONKS',
   'MELEE AN UNAWARE ENEMY FOR A 2.5X TAKEDOWN',
+  'GREENERY IS COVER: STAND IN BUSHES TO DROP OUT OF ENEMY SIGHT',
+  'WEATHER SHIFTS. FOG AND STORMS SHORTEN ENEMY VISION — USE THEM',
   'RUMOR: A TALKING PISTOL LIES IN A GUTTER SOMEWHERE...',
 ];
 const FIXER_LINES = [
@@ -201,6 +203,17 @@ const SKIPPY_LINES = [
 // new-game random starter kit pools
 const STARTER_WPNS = ['liberty', 'lexington', 'unity', 'knife', 'bat'];
 const STARTER_CARS = ['galena', 'supron', 'colby'];
+
+// weather: density = raindrop count, range = enemy view-range multiplier
+const WEATHERS = {
+  clear:   { name: 'CLEAR NIGHT',  density: 0,   thunder: 0,   range: 1 },
+  drizzle: { name: 'DRIZZLE',      density: 55,  thunder: 0.1, range: 1 },
+  storm:   { name: 'STORM',        density: 160, thunder: 1,   range: 0.85, tint: 'rgba(40,60,110,0.07)' },
+  acid:    { name: 'ACID DRIZZLE', density: 90,  thunder: 0.2, range: 1,    tint: 'rgba(120,255,80,0.045)', rainCol: 'rgba(150,230,110,0.22)' },
+  fog:     { name: 'FOG',          density: 0,   thunder: 0,   range: 0.7,  tint: 'rgba(170,180,200,0.05)', fog: 1 },
+  smog:    { name: 'SMOG',         density: 0,   thunder: 0,   range: 0.85, tint: 'rgba(255,140,60,0.05)',  fog: 0.6, fogCol: '#cf8a4a' },
+};
+const WEATHER_POOL = ['clear', 'clear', 'drizzle', 'drizzle', 'drizzle', 'storm', 'storm', 'fog', 'fog', 'acid', 'acid', 'smog'];
 
 function xpFor(lvl) { return Math.floor(70 * Math.pow(lvl, 1.45)); }
 function dpsOf(w) { return Math.round(w.dmg * (w.pellets || 1) * w.rof); }

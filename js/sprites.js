@@ -180,8 +180,46 @@ function wiconCanvas(cls, col) {
   return cv;
 }
 
+// district flora (16x14): V can hide in these
+function bushSprite(kind) {
+  const cv = mkCanvas(16, 14), c = cv.getContext('2d');
+  const P = {
+    hedge: { a: '#1c3a24', b: '#2a5234', c: '#3a6a44' }, // corpo box hedge
+    bush:  { a: '#16383a', b: '#1f5450', c: '#2d7a6a' }, // teal urban shrub
+    neon:  { a: '#2a1430', b: '#3a2244', c: '#ff5aa8' }, // japantown blossom
+    scrub: { a: '#2e2a16', b: '#4a4422', c: '#6a6232' }, // industrial scrub
+    grass: { a: '#16331c', b: '#22512c', c: '#37733c' }, // wild tall grass
+    dead:  { a: '#2c2014', b: '#46331c', c: '#5e4424' }, // dogtown dry brush
+  }[kind] || { a: '#1c3a24', b: '#2a5234', c: '#3a6a44' };
+  c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(3, 12, 10, 2); // shadow
+  if (kind === 'hedge') {
+    c.fillStyle = P.a; c.fillRect(1, 4, 14, 8);
+    c.fillStyle = P.b; c.fillRect(1, 4, 14, 2);
+    c.fillStyle = P.c; for (let k = 0; k < 8; k++) c.fillRect(2 + (k * 5 + 3) % 13, 4 + (k * 7 + 1) % 7, 1, 1);
+  } else if (kind === 'grass') {
+    const hs = [5, 8, 4, 9, 6, 8, 5];
+    for (let k = 0; k < 7; k++) {
+      c.fillStyle = k % 2 ? P.b : P.c;
+      c.fillRect(1 + k * 2, 12 - hs[k], 2, hs[k]);
+      c.fillStyle = P.a; c.fillRect(1 + k * 2, 10, 2, 2);
+    }
+  } else if (kind === 'scrub' || kind === 'dead') {
+    c.fillStyle = P.a; c.fillRect(4, 7, 8, 5);
+    c.fillStyle = P.b;
+    c.fillRect(2, 5, 3, 3); c.fillRect(10, 4, 4, 4); c.fillRect(6, 3, 3, 3);
+    c.fillStyle = P.c; c.fillRect(7, 2, 1, 3); c.fillRect(3, 4, 1, 3); c.fillRect(12, 3, 1, 3);
+  } else { // bush / neon blob
+    c.fillStyle = P.a; c.fillRect(2, 6, 12, 6);
+    c.fillStyle = P.b; c.fillRect(3, 3, 10, 6); c.fillRect(5, 2, 6, 3);
+    c.fillStyle = P.c;
+    if (kind === 'neon') { c.fillRect(4, 4, 2, 2); c.fillRect(9, 3, 2, 2); c.fillRect(7, 7, 2, 2); c.fillRect(12, 6, 1, 2); }
+    else { c.fillRect(5, 3, 2, 1); c.fillRect(9, 5, 2, 1); c.fillRect(4, 8, 1, 2); }
+  }
+  return cv;
+}
+
 const SPR = {
-  _peds: {}, _cars: {}, _glows: {}, _wicons: {}, _skulls: {},
+  _peds: {}, _cars: {}, _glows: {}, _wicons: {}, _skulls: {}, _bushes: {},
   player: null, civs: [], psycho: null, crate: null, vend: null, scan: null, cursor: null,
 
   ped(fac) {
@@ -208,6 +246,10 @@ const SPR = {
     const k = cls + col;
     if (!this._wicons[k]) this._wicons[k] = wiconCanvas(cls, col);
     return this._wicons[k];
+  },
+  bush(kind) {
+    if (!this._bushes[kind]) this._bushes[kind] = bushSprite(kind);
+    return this._bushes[kind];
   },
   skull(col) {
     if (!this._skulls[col]) {

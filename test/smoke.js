@@ -345,6 +345,42 @@ openTalk(doll);
 talkSelect(2); // leave
 assert(G.ui === null, 'leave closes talk');
 
+// ---- flora: district variety + concealment ----
+assert(WORLD.bushes.length > 40, 'bushes planted (' + WORLD.bushes.length + ')');
+assert(new Set(WORLD.bushes.map(b => b.kind)).size >= 3, 'different flora across districts');
+setWeather('clear');
+let hideBush = null, hOff = 0;
+for (const b of WORLD.bushes) {
+  for (const off of [80, -80]) {
+    if (!WORLD.blockedPx(b.x + off, b.y) && WORLD.tileAt(b.x + off, b.y) < 5 && WORLD.losClear(b.x, b.y - 4, b.x + off, b.y - 4)) { hideBush = b; hOff = off; break; }
+  }
+  if (hideBush) break;
+}
+assert(hideBush, 'found a bush with a clear sightline');
+G.enemies = []; G.bounty = null; G.p.iframes = 99999;
+G.p.x = hideBush.x; G.p.y = hideBush.y;
+const peeper = makeEnemy(hideBush.x + hOff, hideBush.y, 1, 'scavs', 'gun', {});
+peeper.wanderT = 9999; peeper.wx = 0; peeper.wy = 0;
+peeper.lookA = hOff > 0 ? Math.PI : 0; // staring straight at the bush
+G.enemies.push(peeper);
+steps(150);
+assert(G.pHidden, 'V registers as concealed in the bush');
+assert(!peeper.alerted, 'bush conceals V from a direct stare');
+G.p.x = hideBush.x + (hOff > 0 ? 30 : -30); // step out of cover
+steps(150);
+assert(peeper.alerted, 'leaving cover gets V spotted');
+
+// ---- weather system ----
+assert(WEATHERS[G.weather.kind], 'weather active');
+setWeather('clear');
+const clearRange = enemyRange({ kind: 'gun' });
+setWeather('fog');
+assert(enemyRange({ kind: 'gun' }) < clearRange, 'fog shortens enemy vision');
+setWeather('storm');
+steps(150);
+assert(G.wfx.density > 80, 'storm ramps rain density');
+setWeather('drizzle');
+
 // ---- legacy save (pre-gender/dens fields) still continues ----
 localStorage.setItem('ncpx2077_v1', JSON.stringify({
   v: 1, eddies: 777, lvl: 3, xp: 10, maxdocs: 1,

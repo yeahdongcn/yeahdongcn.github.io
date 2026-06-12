@@ -36,6 +36,12 @@ and street cred → spend them at the three shops near spawn → take on
 - **Weapon database: 38** — 25 shop guns + 4 cyber-arm weapons + **8 iconics dropped only by cyberpsychos** (every 3rd bounty summons one) + 1 hidden talking pistol lost in a gutter somewhere…
 - **Garage: 12 vehicles** · **Chrome: 17 implants** · full stats page with net worth.
 
+A **random weather system** rolls clear nights, drizzle, thunderstorms, fog, acid
+drizzle, and smog — fog and storms genuinely shorten enemy sight lines. Each district
+grows its own **flora** (corpo hedges, Japantown blossoms, Pacifica tall grass,
+Dogtown dry brush…), and standing in any bush **conceals V** from enemy view cones —
+break line of sight, dive into the greenery, and watch them sweep past.
+
 Six districts (Watson, Westbrook, City Center, Santo Domingo, Pacifica — and **Dogtown**,
 the ★★★★ Barghest-held corner in the south-west) with their own gangs and danger ratings.
 **Airdrops** parachute into Dogtown every few minutes: race the Barghest squad to the

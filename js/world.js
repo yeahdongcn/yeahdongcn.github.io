@@ -26,7 +26,9 @@ function genWorld() {
     for (let y = lo; y <= hi; y++) for (let x = r; x < r + 4; x++) { t[idx(x, y)] = WT.ROAD; t[idx(y, x)] = WT.ROAD; }
   }
 
-  const bldgs = [], alleys = [], crateSpots = [], vends = [], holos = [], signs = [], lights = [], puddles = [], wrecks = [], trees = [], displays = [], roofs = [], dens = [], npcs = [], obst = [];
+  const bldgs = [], alleys = [], crateSpots = [], vends = [], holos = [], signs = [], lights = [], puddles = [], wrecks = [], trees = [], displays = [], roofs = [], dens = [], npcs = [], obst = [], bushes = [];
+  const BUSH_BY_DIST = { center: 'hedge', watson: 'bush', westbrook: 'neon', santo: 'scrub', pacifica: 'grass', dogtown: 'dead' };
+  const plant = (tx, ty, kind) => bushes.push({ x: tx * TILE + 8, y: ty * TILE + 8, r: 11, kind });
   const shops = {};
   let spawnPt = null;
 
@@ -49,6 +51,7 @@ function genWorld() {
       spawnPt = { x: (ix + 6) * TILE, y: (iy + 7) * TILE + 8 };
       vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 8) * TILE });
       crateSpots.push({ x: (ix + 10) * TILE, y: (iy + 9) * TILE });
+      plant(ix + 1, iy + 6, 'hedge'); plant(ix + 11, iy + 6, 'hedge');
       continue;
     }
     if (isShop) {
@@ -77,23 +80,28 @@ function genWorld() {
       obst.push({ x: (ix + 9) * TILE - 4, y: (iy + 9) * TILE + 2, w: 8, h: 9 });
       vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 10) * TILE });
       crateSpots.push({ x: (ix + 10) * TILE, y: (iy + 10) * TILE });
+      plant(ix + 2, iy + 7, 'neon'); plant(ix + 10, iy + 7, 'neon');
       continue;
     }
 
+    const dKind = BUSH_BY_DIST[distK] || 'bush';
     const roll = rng();
     if (roll < 0.14) { // plaza
       setRect(ix, iy, 12, 12, WT.PLAZA);
       for (let k = 0; k < 3; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
       vends.push({ x: (ix + (rng() * 11 | 0)) * TILE + 8, y: iy * TILE + 8 });
       holos.push({ x: (ix + 6) * TILE, y: (iy + 6) * TILE, text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] });
+      for (let k = 0; k < 3; k++) plant(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), dKind);
     } else if (roll < 0.24) { // park
       setRect(ix, iy, 12, 12, WT.PARK);
       for (let k = 0; k < 7; k++) trees.push({ x: (ix + 1 + rng() * 10) * TILE, y: (iy + 1 + rng() * 10) * TILE, r: 5 + rng() * 6, col: rng() < 0.5 ? '#1d4030' : '#3a2a4a' });
       for (let k = 0; k < 2; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 6; k++) plant(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), rng() < 0.5 ? 'grass' : dKind);
     } else if (roll < 0.32) { // parking lot
       setRect(ix, iy, 12, 12, WT.PLAZA);
       for (let k = 0; k < 3; k++) wrecks.push({ x: (ix + 1 + (rng() * 9 | 0)) * TILE, y: (iy + 1 + (rng() * 9 | 0)) * TILE, a: rng() * 6.3 });
       for (let k = 0; k < 2; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 2; k++) plant(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), rng() < 0.5 ? 'scrub' : dKind);
     } else { // buildings with alleys
       const pat = rng();
       const rects = [];
@@ -114,6 +122,10 @@ function genWorld() {
         bldgs.push(b);
       }
       if (rng() < 0.5 && alleys.length) { const a = alleys[alleys.length - 1]; crateSpots.push({ x: a.x * TILE + 8, y: a.y * TILE + 8 }); }
+      if (rng() < 0.45 && alleys.length) { const a = alleys[(rng() * alleys.length) | 0]; plant(a.x, a.y, dKind); }
+      // street planters on the sidewalk ring
+      if (rng() < 0.75) plant(bx + 1 + (rng() * 12 | 0), rng() < 0.5 ? by : by + 13, dKind);
+      if (rng() < 0.75) plant(rng() < 0.5 ? bx : bx + 13, by + 1 + (rng() * 12 | 0), dKind);
       if (rng() < 0.45) holos.push({ x: (ix + 3 + rng() * 6) * TILE, y: (iy + 3 + rng() * 6) * TILE, text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] });
     }
   }
@@ -225,7 +237,7 @@ function genWorld() {
   else skippySpot = { x: RD[5] * TILE, y: RD[5] * TILE };
 
   WORLD = {
-    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, displays, spawn, skippySpot, roofs, dens, npcs, obst,
+    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, displays, spawn, skippySpot, roofs, dens, npcs, obst, bushes,
     solidAt(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H || t[ty * W + tx] === WT.BLDG; },
     solidPx(x, y) { return this.solidAt(Math.floor(x / TILE), Math.floor(y / TILE)); },
     // walls + furniture/NPC bodies: blocks movers; bullets use solidPx and fly over furniture

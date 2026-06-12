@@ -15,7 +15,10 @@ function turnToward(cur, want, max) {
   return cur + clamp(diff, -max, max);
 }
 const FOV_HALF = 1.0; // ~57° half-angle view cone
-function enemyRange(e) { return e.psycho ? 420 : e.bounty ? 230 : e.kind === 'gun' ? 185 : 160; }
+function enemyRange(e) {
+  const base = e.psycho ? 420 : e.bounty ? 230 : e.kind === 'gun' ? 185 : 160;
+  return base * ((G && G.weather && WEATHERS[G.weather.kind].range) || 1); // fog/storms shorten sight
+}
 function fmt(n) {
   n = Math.round(n); let s = String(Math.abs(n)), o = '';
   while (s.length > 3) { o = ',' + s.slice(-3) + o; s = s.slice(0, -3); }
@@ -68,7 +71,26 @@ function newGame() {
     stats: { kills: 0, psychos: 0, bounties: 0, crates: 0, dist: 0, playT: 0, airdrops: 0 },
     saveT: 12, deadT: 0, deathFee: 0, hurtT: 0, flashT: 0, thunderT: rnd(18, 40),
     rain: [], prompt: null, lockTarget: null, lastDistrict: null,
+    weather: { kind: 'drizzle', t: rnd(60, 120) }, wfx: { density: 55, fog: 0 }, fogBlobs: [], pHidden: false,
   };
+}
+
+function setWeather(kind) {
+  G.weather = { kind, t: rnd(70, 160) };
+  msg('WEATHER: ' + WEATHERS[kind].name, '#8a93a6');
+}
+
+function updateWeather(dt) {
+  G.weather.t -= dt;
+  if (G.weather.t <= 0) {
+    const next = pick(WEATHER_POOL.filter(k => k !== G.weather.kind));
+    setWeather(next);
+    SFX.msg();
+  }
+  const W = WEATHERS[G.weather.kind];
+  G.wfx.density += ((W.density || 0) - G.wfx.density) * Math.min(1, dt * 0.7);
+  G.wfx.fog += ((W.fog || 0) - G.wfx.fog) * Math.min(1, dt * 0.7);
+  SFX.rainLevel(Math.min(1, G.wfx.density / 160));
 }
 
 function makePlayer(x, y) {
@@ -193,7 +215,17 @@ function boot() {
 
   // headless/screenshot support: ?autostart skips the title menu, ?demo fast-forwards into action
   const q = (window.location && window.location.search) || '';
-  if (/autostart|demo/.test(q)) startGame(false, /v=f/.test(q) ? 'f' : 'm');
+  // ?wx=storm|fog|acid|clear|smog|drizzle forces weather in any debug mode
+  const wxm = q.match(/wx=(\w+)/);
+  const forceWx = () => {
+    if (wxm && WEATHERS[wxm[1]]) {
+      setWeather(wxm[1]);
+      G.wfx.density = WEATHERS[wxm[1]].density || 0;
+      G.wfx.fog = WEATHERS[wxm[1]].fog || 0;
+      G.weather.t = 9999;
+    }
+  };
+  if (/autostart|demo/.test(q)) { startGame(false, /v=f/.test(q) ? 'f' : 'm'); forceWx(); }
   else if (/charsel/.test(q)) G.titleMode = 'gender';
   else if (/indoor/.test(q)) { // screenshot helper: stand inside the gun shop
     startGame(false);
@@ -310,6 +342,7 @@ function step(dt) {
     updateCivs(dtW);
     updateSpawns(dt);
     updateAirdrop(dt, dtW);
+    updateWeather(dt);
     updateTips(dt);
     // roof reveal + gang hideout ambushes
     const ptx = Math.floor(p.x / TILE), pty = Math.floor(p.y / TILE);
@@ -339,7 +372,11 @@ function step(dt) {
   G.hurtT = Math.max(0, G.hurtT - dt * 2);
   G.flashT = Math.max(0, G.flashT - dt * 3);
   G.thunderT -= dt;
-  if (G.thunderT <= 0) { G.thunderT = rnd(20, 50); G.flashT = 0.25; SFX.thunder(); }
+  if (G.thunderT <= 0) {
+    const W = WEATHERS[G.weather.kind];
+    G.thunderT = G.weather.kind === 'storm' ? rnd(6, 16) : rnd(20, 50);
+    if (Math.random() < (W.thunder || 0)) { G.flashT = 0.25; SFX.thunder(); }
+  }
   // camera
   const tgt = G.driving && G.car ? { x: G.car.x + G.car.vx * 0.35, y: G.car.y + G.car.vy * 0.35 }
     : { x: p.x + (G.mouse.sx - VIEW_W / 2) * 0.18, y: p.y + (G.mouse.sy - VIEW_H / 2) * 0.18 };
@@ -466,6 +503,11 @@ function updatePlayer(dt, dtP) {
   }
   if (G.mouse.down && w && !G.ui) tryFire(w);
 
+  // greenery concealment
+  G.pHidden = false;
+  for (const b of WORLD.bushes) {
+    if (Math.abs(b.x - p.x) < 14 && Math.abs(b.y - p.y) < 13 && distPx(b.x, b.y, p.x, p.y) < b.r) { G.pHidden = true; break; }
+  }
   // district banner
   const dk = WORLD.districtAt(p.x, p.y);
   if (dk !== G.lastDistrict) {
@@ -858,6 +900,7 @@ function updateEnemies(dt) {
       const da = Math.abs(((aToV - e.lookA) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
       const inCone = d < prox || (d < range && (da < FOV_HALF || e.psycho)) || (G.driving && (G.carSpd || 0) > 140 && d < 230);
       if (inCone) seen = WORLD.losClear(e.x, e.y - 4, px, py - 4);
+      if (seen && !G.driving && G.pHidden && d > 26) seen = false; // V is in the bushes
     }
     e.seen = seen;
     if (seen) {
@@ -1543,19 +1586,37 @@ function msg(text, col) {
 function banner(text, sub, col) { G.bannerO = { text, sub, col: col || '#f9f002', t: 3 }; }
 
 function updateRain(dt) {
-  if (!G.rain.length) for (let i = 0; i < 110; i++) G.rain.push({ x: rnd(0, VIEW_W), y: rnd(0, VIEW_H), s: rnd(220, 380), l: rnd(4, 9) });
+  if (!G.rain.length) for (let i = 0; i < 160; i++) G.rain.push({ x: rnd(0, VIEW_W), y: rnd(0, VIEW_H), s: rnd(220, 380), l: rnd(4, 9) });
   for (const r of G.rain) {
     r.y += r.s * dt; r.x -= r.s * 0.18 * dt;
     if (r.y > VIEW_H) { r.y = -10; r.x = rnd(0, VIEW_W + 60); }
   }
+  if (!G.fogBlobs.length) for (let i = 0; i < 9; i++) G.fogBlobs.push({ x: rnd(0, VIEW_W), y: rnd(0, VIEW_H), vx: rnd(4, 14), r: rnd(60, 110) });
+  for (const f of G.fogBlobs) {
+    f.x += f.vx * dt;
+    if (f.x - f.r > VIEW_W) { f.x = -f.r; f.y = rnd(0, VIEW_H); }
+  }
 }
 
 function drawRain(c) {
-  c.strokeStyle = 'rgba(150,190,230,0.20)';
-  c.lineWidth = 1;
-  c.beginPath();
-  for (const r of G.rain) { c.moveTo(r.x, r.y); c.lineTo(r.x - r.l * 0.18, r.y - r.l); }
-  c.stroke();
+  const W = WEATHERS[G.weather.kind];
+  const n = Math.min(G.rain.length, Math.round(G.wfx.density));
+  if (n > 0) {
+    c.strokeStyle = W.rainCol || 'rgba(150,190,230,0.20)';
+    c.lineWidth = 1;
+    c.beginPath();
+    for (let i = 0; i < n; i++) { const r = G.rain[i]; c.moveTo(r.x, r.y); c.lineTo(r.x - r.l * 0.18, r.y - r.l); }
+    c.stroke();
+  }
+  if (G.wfx.fog > 0.02) {
+    const fcol = W.fogCol || '#aeb6c4';
+    for (const f of G.fogBlobs) {
+      c.globalAlpha = 0.14 * G.wfx.fog;
+      c.drawImage(SPR.glowS(fcol, Math.round(f.r)), f.x - f.r, f.y - f.r);
+    }
+    c.globalAlpha = 1;
+  }
+  if (W.tint) { c.fillStyle = W.tint; c.fillRect(0, 0, VIEW_W, VIEW_H); }
 }
 
 // =================== render ===================
@@ -1676,7 +1737,7 @@ function drawWorldEntities(c, indoor) {
   if (!G.driving && indoorAt(p.x, p.y) === indoor) {
     const pedSpr = SPR.player[G.gender] || SPR.player.m;
     for (const tr of p.trail) drawPed(c, pedSpr, tr.face, tr.flip, 0, tr.x, tr.y, tr.t * 1.2);
-    drawPed(c, pedSpr, p.face, p.flip, p.moving ? Math.floor(p.anim) : 0, p.x, p.y, p.camoT > 0 ? 0.25 : 1);
+    drawPed(c, pedSpr, p.face, p.flip, p.moving ? Math.floor(p.anim) : 0, p.x, p.y, p.camoT > 0 ? 0.25 : G.pHidden ? 0.8 : 1);
     // held gun
     const w = curWpn();
     if (w && !MELEE_CLS[w.cls] && p.camoT <= 0) {
@@ -1732,6 +1793,9 @@ function render() {
     if (!visible(d.x, d.y)) continue;
     c.drawImage(SPR.car(d.id), d.x - 8, d.y - 15);
   }
+  for (const b of WORLD.bushes) {
+    if (visible(b.x, b.y)) c.drawImage(SPR.bush(b.kind), b.x - 8, b.y - 10);
+  }
   // entities under roofs (indoors) — hidden until the roof fades
   drawWorldEntities(c, true);
   // roofs of enterable buildings (fade away when V is inside)
@@ -1753,6 +1817,12 @@ function render() {
   }
   // entities in the open air — in FRONT of facades and roofs, never covered by them
   drawWorldEntities(c, false);
+  // foliage canopy: drawn back over entities so whoever stands in a bush is shrouded
+  c.globalAlpha = 0.85;
+  for (const b of WORLD.bushes) {
+    if (visible(b.x, b.y)) c.drawImage(SPR.bush(b.kind), b.x - 8, b.y - 10);
+  }
+  c.globalAlpha = 1;
   // glow pass
   c.globalCompositeOperation = 'lighter';
   for (const g of G.glows) {

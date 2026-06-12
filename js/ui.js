@@ -136,6 +136,7 @@ function drawHUD(c) {
   drawText(c, 'C×' + G.maxdocs, cx, cy + 1, G.maxdocs > 0 ? '#2ecc71' : '#5a6372', 1);
   if (p.useT > 0) { uiBar(c, cx, cy + 8, 30, 2, 1 - p.useT, '#2ecc71'); }
   if (p.joyT > 0) drawText(c, '♥' + Math.ceil(p.joyT), cx + 26, cy + 1, '#ff2a6d', 1);
+  if (G.pHidden && !G.driving) drawText(c, 'CONCEALED', 8, cy + 12, '#00ff9f', 1);
 
   drawMinimap(c);
 
@@ -184,6 +185,7 @@ function drawHUD(c) {
     const d = Math.hypot(G.airdrop.x - p.x, G.airdrop.y - p.y) / 10 | 0;
     drawTextR(c, 'AIRDROP: ' + (G.airdrop.state === 'falling' ? 'INBOUND' : Math.ceil(G.airdrop.t) + 'S') + ' · ' + d + 'M', VIEW_W - 8, G.bounty ? 88 : 78, '#ff6a00', 1);
   }
+  drawTextR(c, WEATHERS[G.weather.kind].name, VIEW_W - 8, 78 + (G.bounty ? 10 : 0) + (G.airdrop ? 10 : 0), '#5a6372', 1);
   drawMsgs(c);
   drawBanner(c);
   // edge markers

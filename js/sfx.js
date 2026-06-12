@@ -31,6 +31,12 @@ const SFX = {
       this.engineGain = c.createGain(); this.engineGain.gain.value = 0;
       this.engineOsc.connect(this.engineLp); this.engineLp.connect(this.engineGain); this.engineGain.connect(this.sfxBus);
       this.engineOsc.start();
+      // rain ambience loop (gain driven by the weather system)
+      const rainSrc = c.createBufferSource(); rainSrc.buffer = this.noiseBuf; rainSrc.loop = true;
+      const rainLp = c.createBiquadFilter(); rainLp.type = 'lowpass'; rainLp.frequency.value = 1300;
+      this.rainGain = c.createGain(); this.rainGain.gain.value = 0;
+      rainSrc.connect(rainLp); rainLp.connect(this.rainGain); this.rainGain.connect(this.master);
+      rainSrc.start();
       this._startMusic();
       this.inited = true;
     } catch (e) { /* no audio available */ }
@@ -132,6 +138,11 @@ const SFX = {
   thunder()  { this.noise({ dur: 1.6, vol: 0.3, type: 'lowpass', f0: 400, f1: 60 }); },
   explode()  { this.noise({ dur: 0.8, vol: 0.5, type: 'lowpass', f0: 900, f1: 60 }); this.tone({ type: 'sine', f0: 90, f1: 30, dur: 0.6, vol: 0.5 }); },
   msg()      { this.tone({ type: 'square', f0: 880, dur: 0.04, vol: 0.05 }); },
+
+  rainLevel(l) { // 0..1 from weather density
+    if (!this.ctx || !this.rainGain) return;
+    this.rainGain.gain.linearRampToValueAtTime(l * 0.085, this.ctx.currentTime + 0.4);
+  },
 
   engine(on, spd) { // spd 0..1
     if (!this.ctx) return;
