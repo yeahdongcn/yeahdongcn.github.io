@@ -12,6 +12,8 @@ zero dependencies, zero asset files, one neon-soaked city generated from code.</
   <img alt="AI contributions welcome" src="https://img.shields.io/badge/AI_agents-welcome-00ff9f">
 </p>
 
+<p align="center">🎮 <a href="https://yeahdongcn.github.io/night-city-pixel/"><b>PLAY NOW IN YOUR BROWSER</b></a> — desktop <i>or</i> phone (twin-stick touch controls appear automatically)</p>
+
 <p align="center"><img src="screenshots/action.png" width="800" alt="Vehicular combat: blood tire-tracks across an intersection, loot drops glowing in the rain"></p>
 <p align="center"><i>Run a Scav pack over at full speed — the blood stays on the asphalt, the loot is yours.</i></p>
 
@@ -50,7 +52,10 @@ git clone https://github.com/yeahdongcn/night-city-pixel && cd night-city-pixel
 # or: python3 -m http.server 8080   ·   or: npx serve .   ·   or just open index.html
 ```
 
-Desktop browser, keyboard + mouse. Click once to enable audio.
+Desktop: keyboard + mouse (click once to enable audio).
+**Mobile (iPhone/Android):** touch is auto-detected — left stick moves/drives, right stick
+aims (push past 55% to fire), on-screen buttons handle dash/interact/heal/abilities, and
+menus are tap + drag-to-scroll. Landscape recommended; add to home screen for fullscreen.
 
 ## Controls
 

@@ -26,6 +26,127 @@ function fmt(n) {
 }
 function curWpn() { const id = G.loadout[G.slot]; return id ? WPN[id] : null; }
 
+// ---- touch / mobile: twin-stick virtual controls (left = move, right = aim+fire) ----
+const TOUCH = {
+  on: false, ids: new Map(), setKeys: new Set(), held: {},
+  mv: { act: false, x: 0, y: 0, bx: 0, by: 0, kx: 0, ky: 0 },
+  aim: { act: false, x: 0, y: 0, bx: 0, by: 0, kx: 0, ky: 0 },
+  firing: false,
+};
+
+function touchButtons() {
+  const B = [
+    { k: 'dash', x: 470, y: 316, r: 20, label: 'DASH' },
+    { k: 'use', x: 462, y: 252, r: 16, label: 'E' },
+    { k: 'doc', x: 506, y: 220, r: 14, label: 'C' },
+    { k: 'car', x: 424, y: 218, r: 14, label: 'V' },
+    { k: 'pause', x: 284, y: 16, r: 11, label: 'II' },
+    { k: 'inv', x: 316, y: 16, r: 11, label: 'BAG' },
+    { k: 'radio', x: 350, y: 16, r: 11, label: 'FM' },
+  ];
+  if (G.os) B.push({ k: 'os', x: 552, y: 200, r: 14, label: 'Q' });
+  if (G.cyber.camo) B.push({ k: 'camo', x: 598, y: 214, r: 14, label: 'F' });
+  return B;
+}
+
+function touchBtnDown(k) {
+  if (k === 'dash') { G.keys.add('Space'); G.pressed.add('Space'); }
+  else if (k === 'use') G.pressed.add('KeyE');
+  else if (k === 'doc') G.pressed.add('KeyC');
+  else if (k === 'os') G.pressed.add('KeyQ');
+  else if (k === 'camo') G.pressed.add('KeyF');
+  else if (k === 'car') G.pressed.add('KeyV');
+  else if (k === 'radio') G.pressed.add('KeyN');
+  else if (k === 'pause') escAction();
+  else if (k === 'inv') toggleInv();
+}
+function touchBtnUp(k) { if (k === 'dash') G.keys.delete('Space'); }
+
+function touchMenuMode() { return G.state !== 'play' || !!G.ui; }
+
+function touchStartPt(id, pt) {
+  if (touchMenuMode()) {
+    // close button (✕) in any menu
+    if (G.ui && Math.hypot(pt.x - 622, pt.y - 16) < 16) { escAction(); return; }
+    TOUCH.ids.set(id, { role: 'menu', x: pt.x, y: pt.y, drag: 0, moved: 0 });
+    G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.moved = true;
+    return;
+  }
+  for (const b of touchButtons()) {
+    if (Math.hypot(pt.x - b.x, pt.y - b.y) <= b.r + 6) {
+      TOUCH.ids.set(id, { role: 'btn', k: b.k });
+      TOUCH.held[b.k] = true;
+      touchBtnDown(b.k);
+      return;
+    }
+  }
+  if (pt.x < 250 && pt.y > 140) {
+    TOUCH.ids.set(id, { role: 'mv' });
+    TOUCH.mv = { act: true, x: 0, y: 0, bx: pt.x, by: pt.y, kx: pt.x, ky: pt.y };
+  } else if (pt.x > 340 && pt.y > 110) {
+    TOUCH.ids.set(id, { role: 'aim' });
+    TOUCH.aim = { act: true, x: 0, y: 0, bx: pt.x, by: pt.y, kx: pt.x, ky: pt.y };
+  }
+}
+
+function touchMovePt(id, pt) {
+  const t = TOUCH.ids.get(id);
+  if (!t) return;
+  if (t.role === 'menu') {
+    const dy = pt.y - t.y;
+    t.drag += dy; t.moved += Math.abs(dy) + Math.abs(pt.x - t.x);
+    t.x = pt.x; t.y = pt.y;
+    while (t.drag > 24) { G.uiWheel += 1; t.drag -= 24; }
+    while (t.drag < -24) { G.uiWheel -= 1; t.drag += 24; }
+    G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.moved = true;
+  } else if (t.role === 'mv' || t.role === 'aim') {
+    const s = TOUCH[t.role];
+    let dx = pt.x - s.bx, dy = pt.y - s.by;
+    const len = Math.hypot(dx, dy), max = 30;
+    if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+    s.x = dx / max; s.y = dy / max;
+    s.kx = s.bx + dx; s.ky = s.by + dy;
+  }
+}
+
+function touchEndPt(id, pt) {
+  const t = TOUCH.ids.get(id);
+  TOUCH.ids.delete(id);
+  if (!t) return;
+  if (t.role === 'menu') {
+    if (t.moved < 14) { G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.click = true; G.mouse.moved = true; }
+  } else if (t.role === 'btn') {
+    TOUCH.held[t.k] = false;
+    touchBtnUp(t.k);
+  } else if (t.role === 'mv') TOUCH.mv.act = false;
+  else if (t.role === 'aim') { TOUCH.aim.act = false; if (TOUCH.firing) { TOUCH.firing = false; G.mouse.down = false; } }
+}
+
+// translate virtual sticks into the existing key/mouse model every frame
+function applyTouch() {
+  if (!TOUCH.on) return;
+  const play = G.state === 'play' && !G.ui;
+  const want = new Set();
+  if (play && TOUCH.mv.act) {
+    if (TOUCH.mv.x > 0.35) want.add('KeyD');
+    if (TOUCH.mv.x < -0.35) want.add('KeyA');
+    if (TOUCH.mv.y < -0.35) want.add('KeyW');
+    if (TOUCH.mv.y > 0.35) want.add('KeyS');
+  }
+  for (const k of [...TOUCH.setKeys]) if (!want.has(k)) { G.keys.delete(k); TOUCH.setKeys.delete(k); }
+  for (const k of want) if (!TOUCH.setKeys.has(k)) { G.keys.add(k); TOUCH.setKeys.add(k); }
+  if (play && TOUCH.aim.act && !G.driving) {
+    const len = Math.hypot(TOUCH.aim.x, TOUCH.aim.y);
+    if (len > 0.2) {
+      const a = Math.atan2(TOUCH.aim.y, TOUCH.aim.x);
+      G.mouse.sx = clamp(G.p.x - G.cam.x + Math.cos(a) * 90, 4, VIEW_W - 4);
+      G.mouse.sy = clamp(G.p.y - G.cam.y + Math.sin(a) * 90, 4, VIEW_H - 4);
+    }
+    const fire = len > 0.55;
+    if (fire !== TOUCH.firing) { TOUCH.firing = fire; G.mouse.down = fire; }
+  } else if (TOUCH.firing) { TOUCH.firing = false; G.mouse.down = false; }
+}
+
 // ---- NCPX mod API: players become creators. See MODDING.md; mods load from mods/mods.js ----
 const NCPX = {
   mods: [], hooks: {},
@@ -186,14 +307,8 @@ function boot() {
     G.keys.add(e.code); G.pressed.add(e.code);
     if (e.code === 'KeyM') { SFX.init(); msg('SOUND ' + (SFX.toggleMute() ? 'OFF' : 'ON'), '#8a93a6'); }
     if (G.state === 'play') {
-      if (e.code === 'Escape') {
-        if (G.ui) { G.ui = null; SFX.ui(); }
-        else { G.ui = 'pause'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; }
-      }
-      if (e.code === 'Tab') {
-        if (G.ui === 'inv') G.ui = null;
-        else if (!G.ui) { G.ui = 'inv'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; SFX.ui(); }
-      }
+      if (e.code === 'Escape') escAction();
+      if (e.code === 'Tab') toggleInv();
     }
   });
   window.addEventListener('keyup', e => G.keys.delete(e.code));
@@ -206,6 +321,22 @@ function boot() {
   CV.addEventListener('mousedown', e => { SFX.init(); G.mouse.down = true; G.mouse.click = true; e.preventDefault(); });
   window.addEventListener('mouseup', () => { G.mouse.down = false; });
   CV.addEventListener('contextmenu', e => e.preventDefault());
+  // touch / mobile
+  TOUCH.on = ('ontouchstart' in window) || (typeof navigator !== 'undefined' && (navigator.maxTouchPoints | 0) > 0);
+  const toPt = t => {
+    const r = CV.getBoundingClientRect();
+    return { x: (t.clientX - r.left) * (VIEW_W / r.width), y: (t.clientY - r.top) * (VIEW_H / r.height) };
+  };
+  const onTouch = fn => e => {
+    e.preventDefault();
+    TOUCH.on = true;
+    SFX.init();
+    for (const t of e.changedTouches) fn(t.identifier, toPt(t));
+  };
+  CV.addEventListener('touchstart', onTouch(touchStartPt), { passive: false });
+  CV.addEventListener('touchmove', onTouch(touchMovePt), { passive: false });
+  CV.addEventListener('touchend', onTouch(touchEndPt), { passive: false });
+  CV.addEventListener('touchcancel', onTouch(touchEndPt), { passive: false });
   CV.addEventListener('wheel', e => {
     e.preventDefault();
     const d = Math.sign(e.deltaY);
@@ -215,6 +346,7 @@ function boot() {
 
   // headless/screenshot support: ?autostart skips the title menu, ?demo fast-forwards into action
   const q = (window.location && window.location.search) || '';
+  if (/touch/.test(q)) TOUCH.on = true; // preview virtual controls on desktop
   // ?wx=storm|fog|acid|clear|smog|drizzle forces weather in any debug mode
   const wxm = q.match(/wx=(\w+)/);
   const forceWx = () => {
@@ -303,6 +435,17 @@ function fitCanvas() {
   }
 }
 
+function escAction() {
+  if (G.state !== 'play') return;
+  if (G.ui) { G.ui = null; SFX.ui(); }
+  else { G.ui = 'pause'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; }
+}
+function toggleInv() {
+  if (G.state !== 'play') return;
+  if (G.ui === 'inv') G.ui = null;
+  else if (!G.ui) { G.ui = 'inv'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; SFX.ui(); }
+}
+
 function cycleSlot(d) {
   for (let k = 0; k < 3; k++) {
     G.slot = ((G.slot + d) % 3 + 3) % 3;
@@ -316,6 +459,7 @@ function cycleSlot(d) {
 function step(dt) {
   G.rt += dt; G.frame++;
   updateRain(dt);
+  applyTouch();
   if (G.state === 'title') { render(); endFrame(); return; }
   if (G.state === 'dead') {
     G.deadT -= dt;
@@ -1933,6 +2077,7 @@ function render() {
   else if (G.ui === 'bar') drawBar(c);
   else if (G.ui === 'talk') { drawHUD(c); drawTalk(c); }
   else { drawHUD(c); drawCrosshair(c); }
+  if (TOUCH.on) drawTouchControls(c);
 
   // fade-to-black interludes
   if (G.fade) {

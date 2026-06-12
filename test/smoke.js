@@ -404,6 +404,33 @@ startGame(true);
 assert(G.state === 'play' && G.eddies === 777 && G.weapons.liberty, 'legacy save continues cleanly');
 steps(60);
 
+// ---- virtual touch controls (mobile) ----
+TOUCH.on = true; G.ui = null; G.driving = false; G.p.iframes = 99999;
+G.p.x = WORLD.spawn.x; G.p.y = WORLD.spawn.y;
+TOUCH.mv = { act: true, x: 1, y: 0, bx: 70, by: 290, kx: 100, ky: 290 };
+const tx0 = G.p.x;
+steps(30);
+assert(G.keys.has('KeyD') && G.p.x > tx0, 'virtual move stick walks V');
+TOUCH.mv.act = false;
+steps(2);
+assert(!G.keys.has('KeyD'), 'released stick clears injected keys');
+G.slot = 0; // starter weapon
+TOUCH.aim = { act: true, x: 1, y: 0, bx: 570, by: 290, kx: 600, ky: 290 };
+steps(20);
+assert(G.mouse.down && (G.bullets.length > 0 || G.p.fireCd > 0 || G.p.reloadT > 0), 'aim stick fires the equipped weapon');
+TOUCH.aim.act = false;
+steps(2);
+assert(!G.mouse.down, 'releasing aim stick stops firing');
+touchBtnDown('dash');
+assert(G.keys.has('Space'), 'virtual dash button holds Space');
+touchBtnUp('dash');
+assert(!G.keys.has('Space'), 'virtual dash button releases Space');
+touchBtnDown('inv');
+assert(G.ui === 'inv', 'virtual BAG button opens inventory');
+touchBtnDown('pause');
+assert(G.ui === null, 'virtual pause/✕ closes menus');
+TOUCH.on = false;
+
 console.log('SMOKE OK —',
   'kills:' + G.stats.kills,
   'weapons:' + Object.keys(G.weapons).length + '/' + WEAPONS.length,

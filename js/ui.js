@@ -253,6 +253,7 @@ function drawBanner(c) {
 }
 
 function drawCrosshair(c) {
+  if (TOUCH.on && !TOUCH.aim.act) return; // on touch, crosshair only while aiming
   const m = G.mouse, p = G.p;
   const r = 3 + p.recoil * 10 + (curWpn() && !MELEE_CLS[curWpn().cls] ? curWpn().spread * 0.3 : 0);
   const col = G.lockTarget ? '#ff2a6d' : '#e8f6ff';
@@ -265,7 +266,46 @@ function drawCrosshair(c) {
     drawText(c, 'LOCK', lx - 7, ly - 14, '#ff2a6d', 1);
   }
 }
-function drawCursorSpr(c) { c.drawImage(SPR.cursor, G.mouse.sx, G.mouse.sy); }
+function drawCursorSpr(c) { if (!TOUCH.on) c.drawImage(SPR.cursor, G.mouse.sx, G.mouse.sy); }
+
+// =================== VIRTUAL TOUCH CONTROLS ===================
+function drawTouchControls(c) {
+  if (G.state === 'play' && !G.ui) {
+    const stick = (s, dx, dy, label, show) => {
+      if (!show) return;
+      const bx = s.act ? s.bx : dx, by = s.act ? s.by : dy;
+      c.globalAlpha = s.act ? 0.3 : 0.12;
+      c.strokeStyle = '#8fd6e8'; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(bx, by, 28, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = '#8fd6e8';
+      c.beginPath(); c.arc(s.act ? s.kx : bx, s.act ? s.ky : by, 11, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = s.act ? 0.6 : 0.18;
+      drawTextC(c, label, bx, by + 36, '#8fd6e8', 1);
+      c.globalAlpha = 1; c.lineWidth = 1;
+    };
+    stick(TOUCH.mv, 70, 290, 'MOVE', true);
+    stick(TOUCH.aim, 572, 272, 'AIM+FIRE', !G.driving);
+    for (const b of touchButtons()) {
+      const hot = TOUCH.held[b.k], pulse = b.k === 'use' && G.prompt;
+      c.globalAlpha = hot ? 0.5 : pulse ? 0.3 + 0.15 * Math.sin(G.rt * 6) : 0.16;
+      c.fillStyle = pulse ? '#f9f002' : '#8fd6e8';
+      c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = hot ? 0.95 : 0.6;
+      drawTextC(c, b.label, b.x, b.y - 2, pulse ? '#f9f002' : '#dfeaf2', 1);
+      c.globalAlpha = 1;
+    }
+  }
+  if (G.ui) { // ✕ close in any menu
+    c.globalAlpha = 0.5;
+    c.fillStyle = '#1a1c26'; c.beginPath(); c.arc(622, 16, 12, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#ff5a5a'; c.beginPath(); c.arc(622, 16, 12, 0, Math.PI * 2); c.stroke();
+    drawTextC(c, '×', 622, 13, '#ff5a5a', 2);
+    c.globalAlpha = 1;
+  }
+  if (window.innerHeight > window.innerWidth) {
+    drawTextC(c, 'ROTATE DEVICE — LANDSCAPE PLAYS BEST', VIEW_W / 2, 2, '#f9f002', 1);
+  }
+}
 
 // =================== DEATH ===================
 function drawDead(c) {
