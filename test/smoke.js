@@ -255,6 +255,20 @@ assert(G.ui === 'guns', 'walk-in shop counter opens shop');
 assert(G.prompt && G.prompt.includes('WILSON'), 'counter prompt names the vendor');
 G.ui = null;
 
+// ---- shop marquees stay visible from outside ----
+const barSign = WORLD.signs.find(s => s.text === 'AFTERLIFE');
+assert(barSign && barSign.big && barSign.roof != null && WORLD.roofs[barSign.roof], 'afterlife marquee wired to its roof layer');
+
+// ---- doorstep fade: standing at the door (outside) already lifts the roof ----
+const barRoof = WORLD.roofs[barSign.roof];
+G.p.x = barRoof.doorTx[0] * TILE + 8; G.p.y = (barRoof.doorTy + 1) * TILE + 10;
+steps(40);
+assert(barRoof.a < 0.5, 'roof fades from the doorstep');
+assert(!indoorAt(G.p.x, G.p.y), 'doorstep itself is outdoors (drawn in front of facade)');
+G.p.x = WORLD.spawn.x; G.p.y = WORLD.spawn.y;
+steps(60);
+assert(barRoof.a > 0.85, 'roof restores after stepping away');
+
 // ---- furniture & NPC collision: the bar counter blocks V ----
 assert(WORLD.obst.length > 20, 'interior obstacles registered');
 const barObst = WORLD.obst.find(o =>

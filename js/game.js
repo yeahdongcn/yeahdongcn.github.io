@@ -198,6 +198,12 @@ function boot() {
     startGame(false);
     G.p.x = WORLD.shops.guns.x; G.p.y = WORLD.shops.guns.y + 6;
     for (let i = 0; i < 90; i++) step(1 / 60);
+  } else if (/doorstep/.test(q)) { // screenshot helper: stand at the Afterlife door, outside
+    startGame(false);
+    const bs = WORLD.signs.find(s => s.text === 'AFTERLIFE');
+    const r = WORLD.roofs[bs.roof];
+    G.p.x = r.doorTx[0] * TILE + 8; G.p.y = (r.doorTy + 1) * TILE + 10;
+    for (let i = 0; i < 90; i++) step(1 / 60);
   }
   if (/demo/.test(q)) {
     G.eddies = 60000;
@@ -292,7 +298,9 @@ function step(dt) {
     // roof reveal + gang hideout ambushes
     const ptx = Math.floor(p.x / TILE), pty = Math.floor(p.y / TILE);
     for (const r of WORLD.roofs) {
-      const inside = ptx >= r.tx0 && ptx <= r.tx1 && pty >= r.ty0 && pty <= r.ty1;
+      let inside = ptx >= r.tx0 && ptx <= r.tx1 && pty >= r.ty0 && pty <= r.ty1;
+      // standing on the doorstep already fades the roof, so crossing the door never pops
+      if (!inside && pty === r.doorTy + 1 && r.doorTx.indexOf(ptx) >= 0) inside = true;
       r.a += ((inside ? 0.04 : 1) - r.a) * Math.min(1, 9 * dt);
     }
     for (const dn of WORLD.dens) {
@@ -1445,42 +1453,15 @@ function visible(x, y, m) {
   return x > G.cam.x - m && x < G.cam.x + VIEW_W + m && y > G.cam.y - m && y < G.cam.y + VIEW_H + m;
 }
 
-function render() {
-  const c = C;
-  c.fillStyle = '#06060a'; c.fillRect(0, 0, VIEW_W, VIEW_H);
-  if (G.state === 'title') { drawTitle(c); c.drawImage(SPR.scan, 0, 0); return; }
-  const p = G.p, camX = Math.round(G.cam.x), camY = Math.round(G.cam.y);
-  c.save();
-  c.translate(-camX, -camY);
-  // ground
-  c.drawImage(WORLD.cv, camX, camY, VIEW_W, VIEW_H, camX, camY, VIEW_W, VIEW_H);
-  // puddle shimmer
-  for (const pd of WORLD.puddles) {
-    if (!visible(pd.x, pd.y, 20)) continue;
-    c.globalAlpha = 0.06 + 0.04 * Math.sin(G.rt * 2 + pd.x);
-    c.fillStyle = pd.col;
-    c.beginPath(); c.ellipse(pd.x, pd.y, pd.w / 2, pd.h / 2, 0, 0, Math.PI * 2); c.fill();
-  }
-  c.globalAlpha = 1;
-  // crates & vends & displays
-  for (const cr of G.crates) if (cr.hp > 0 && visible(cr.x, cr.y)) c.drawImage(SPR.crate, cr.x - 6, cr.y - 6);
-  for (const v of WORLD.vends) if (visible(v.x, v.y)) c.drawImage(SPR.vend, v.x - 6, v.y - 12);
-  for (const d of WORLD.displays) {
-    if (!visible(d.x, d.y)) continue;
-    c.drawImage(SPR.car(d.id), d.x - 8, d.y - 15);
-  }
-  // shop signs (fade with their building's roof when V is inside)
-  for (const s of WORLD.signs) {
-    if (!visible(s.x, s.y, 60)) continue;
-    const flick = Math.random() < 0.02 ? 0.4 : 1;
-    const rfA = s.roof != null && WORLD.roofs[s.roof] ? WORLD.roofs[s.roof].a : 1;
-    c.globalAlpha = (0.75 + 0.25 * Math.sin(G.rt * 3 + s.x)) * flick * rfA;
-    drawTextC(c, s.text, s.x, s.y, s.col, 1);
-    c.globalAlpha = 1;
-  }
+function indoorAt(x, y) { return WORLD.tileAt(x, y) >= 5; } // FLOOR or DOOR
+
+// One pass per depth layer: indoor entities draw under the roof canvases,
+// outdoor entities draw over them (you stand in FRONT of a south facade).
+function drawWorldEntities(c, indoor) {
+  const p = G.p;
   // pickups
   for (const pk of G.pickups) {
-    if (!visible(pk.x, pk.y)) continue;
+    if (!visible(pk.x, pk.y) || indoorAt(pk.x, pk.y) !== indoor) continue;
     const bob = Math.sin(G.rt * 4 + pk.x) * 1.5;
     if (pk.kind === 'ed') { c.fillStyle = '#f9f002'; c.fillRect(pk.x - 1, pk.y - 1 + bob, 3, 3); }
     else if (pk.kind === 'doc') { c.fillStyle = '#fff'; c.fillRect(pk.x - 3, pk.y - 1 + bob, 6, 2); c.fillRect(pk.x - 1, pk.y - 3 + bob, 2, 6); }
@@ -1490,7 +1471,7 @@ function render() {
     }
   }
   // player car
-  if (G.car && !G.car.dead && visible(G.car.x, G.car.y)) {
+  if (G.car && !G.car.dead && visible(G.car.x, G.car.y) && indoorAt(G.car.x, G.car.y) === indoor) {
     c.save(); c.translate(Math.round(G.car.x), Math.round(G.car.y)); c.rotate(G.car.a + Math.PI / 2);
     c.fillStyle = 'rgba(0,0,0,0.4)'; c.fillRect(-7, -13, 14, 26);
     c.drawImage(SPR.car(G.car.id), -8, -15);
@@ -1498,7 +1479,7 @@ function render() {
   }
   // enemies
   for (const e of G.enemies) {
-    if (e.dead || !visible(e.x, e.y)) continue;
+    if (e.dead || !visible(e.x, e.y) || indoorAt(e.x, e.y) !== indoor) continue;
     // Kiroshi optics: visualize unaware enemies' view cones
     if (G.cyber.kiroshi && !e.alerted) {
       c.globalAlpha = 0.05 + e.detect * 0.08;
@@ -1534,17 +1515,17 @@ function render() {
   }
   // civs
   for (const cv2 of G.civs) {
-    if (!visible(cv2.x, cv2.y)) continue;
+    if (!visible(cv2.x, cv2.y) || indoorAt(cv2.x, cv2.y) !== indoor) continue;
     drawPed(c, SPR.civ(cv2.i), cv2.face, cv2.flip, Math.floor(cv2.anim), cv2.x, cv2.y);
   }
-  // shop vendor NPCs (indoors; hidden under roofs until you walk in)
+  // shop vendor NPCs
   for (const n of WORLD.npcs) {
-    if (!visible(n.x, n.y)) continue;
+    if (!visible(n.x, n.y) || indoorAt(n.x, n.y) !== indoor) continue;
     drawPed(c, SPR.civ(n.i), 'down', false, 0, n.x, n.y);
     drawTextC(c, n.name, n.x, n.y - 20, '#5a6372', 1);
   }
   // player
-  if (!G.driving) {
+  if (!G.driving && indoorAt(p.x, p.y) === indoor) {
     const pedSpr = SPR.player[G.gender] || SPR.player.m;
     for (const tr of p.trail) drawPed(c, pedSpr, tr.face, tr.flip, 0, tr.x, tr.y, tr.t * 1.2);
     drawPed(c, pedSpr, p.face, p.flip, p.moving ? Math.floor(p.anim) : 0, p.x, p.y, p.camoT > 0 ? 0.25 : 1);
@@ -1560,18 +1541,51 @@ function render() {
   }
   // slashes
   for (const s of G.slashes) {
+    if (indoorAt(s.x, s.y) !== indoor) continue;
     c.strokeStyle = s.col; c.globalAlpha = s.t / 0.16; c.lineWidth = 2;
     c.beginPath(); c.arc(s.x, s.y - 3, s.range, s.a - 0.9, s.a + 0.9); c.stroke();
     c.globalAlpha = 1; c.lineWidth = 1;
   }
   // bullets
   for (const b of G.bullets) {
+    if (indoorAt(b.x, b.y) !== indoor) continue;
     c.strokeStyle = b.col; c.lineWidth = b.from === 'p' ? 1.5 : 1;
     c.beginPath(); c.moveTo(b.x - b.vx * 0.02, b.y - b.vy * 0.02); c.lineTo(b.x, b.y); c.stroke();
   }
   c.lineWidth = 1;
   // particles
-  for (const pa of G.parts) { c.fillStyle = pa.col; c.fillRect(pa.x, pa.y, pa.sz, pa.sz); }
+  for (const pa of G.parts) {
+    if (indoorAt(pa.x, pa.y) !== indoor) continue;
+    c.fillStyle = pa.col; c.fillRect(pa.x, pa.y, pa.sz, pa.sz);
+  }
+}
+
+function render() {
+  const c = C;
+  c.fillStyle = '#06060a'; c.fillRect(0, 0, VIEW_W, VIEW_H);
+  if (G.state === 'title') { drawTitle(c); c.drawImage(SPR.scan, 0, 0); return; }
+  const p = G.p, camX = Math.round(G.cam.x), camY = Math.round(G.cam.y);
+  c.save();
+  c.translate(-camX, -camY);
+  // ground
+  c.drawImage(WORLD.cv, camX, camY, VIEW_W, VIEW_H, camX, camY, VIEW_W, VIEW_H);
+  // puddle shimmer
+  for (const pd of WORLD.puddles) {
+    if (!visible(pd.x, pd.y, 20)) continue;
+    c.globalAlpha = 0.06 + 0.04 * Math.sin(G.rt * 2 + pd.x);
+    c.fillStyle = pd.col;
+    c.beginPath(); c.ellipse(pd.x, pd.y, pd.w / 2, pd.h / 2, 0, 0, Math.PI * 2); c.fill();
+  }
+  c.globalAlpha = 1;
+  // crates & vends & displays
+  for (const cr of G.crates) if (cr.hp > 0 && visible(cr.x, cr.y)) c.drawImage(SPR.crate, cr.x - 6, cr.y - 6);
+  for (const v of WORLD.vends) if (visible(v.x, v.y)) c.drawImage(SPR.vend, v.x - 6, v.y - 12);
+  for (const d of WORLD.displays) {
+    if (!visible(d.x, d.y)) continue;
+    c.drawImage(SPR.car(d.id), d.x - 8, d.y - 15);
+  }
+  // entities under roofs (indoors) — hidden until the roof fades
+  drawWorldEntities(c, true);
   // roofs of enterable buildings (fade away when V is inside)
   for (const r of WORLD.roofs) {
     if (r.a < 0.02) continue;
@@ -1580,6 +1594,17 @@ function render() {
     c.drawImage(r.cv, r.x, r.y);
   }
   c.globalAlpha = 1;
+  // neon signs sit on the exterior walls: drawn over the roof layer, fading with it indoors
+  for (const s of WORLD.signs) {
+    if (!visible(s.x, s.y, 60)) continue;
+    const flick = Math.random() < 0.02 ? 0.4 : 1;
+    const rfA = s.roof != null && WORLD.roofs[s.roof] ? WORLD.roofs[s.roof].a : 1;
+    c.globalAlpha = (0.75 + 0.25 * Math.sin(G.rt * 3 + s.x)) * flick * rfA;
+    drawTextC(c, s.text, s.x, s.y, s.col, s.big ? 2 : 1);
+    c.globalAlpha = 1;
+  }
+  // entities in the open air — in FRONT of facades and roofs, never covered by them
+  drawWorldEntities(c, false);
   // glow pass
   c.globalCompositeOperation = 'lighter';
   for (const g of G.glows) {
@@ -1589,8 +1614,10 @@ function render() {
   for (const s of WORLD.signs) {
     if (!visible(s.x, s.y, 60)) continue;
     const rfA = s.roof != null && WORLD.roofs[s.roof] ? WORLD.roofs[s.roof].a : 1;
-    c.globalAlpha = (0.16 + 0.05 * Math.sin(G.rt * 3 + s.x)) * rfA;
-    c.drawImage(SPR.glowS(s.col, 22), s.x - 22, s.y - 20);
+    const gr = s.big ? 32 : 22;
+    c.globalAlpha = (s.big ? 0.22 : 0.16) + 0.05 * Math.sin(G.rt * 3 + s.x);
+    c.globalAlpha *= rfA;
+    c.drawImage(SPR.glowS(s.col, gr), s.x - gr, s.y - gr + 4);
   }
   for (const L of WORLD.lights) {
     if (!visible(L.x, L.y, 30)) continue;

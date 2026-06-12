@@ -183,7 +183,7 @@ function genWorld() {
   // buildings: enterable → interior on ground + roof on its own fading layer
   for (const b of bldgs) {
     if (b.ent) {
-      const r = { x: b.x * TILE, y: b.y * TILE, w: b.w * TILE, h: b.h * TILE, cv: mkCanvas(b.w * TILE, b.h * TILE), a: 1, tx0: b.x, ty0: b.y, tx1: b.x + b.w - 1, ty1: b.y + b.h - 1, lights: [] };
+      const r = { x: b.x * TILE, y: b.y * TILE, w: b.w * TILE, h: b.h * TILE, cv: mkCanvas(b.w * TILE, b.h * TILE), a: 1, tx0: b.x, ty0: b.y, tx1: b.x + b.w - 1, ty1: b.y + b.h - 1, doorTx: b.doors.slice(), doorTy: b.y + b.h - 1, lights: [] };
       _bakeInterior(c, b, r, rng, npcs, obst);
       _bakeExterior(r.cv.getContext('2d'), b, -b.x * TILE, -b.y * TILE, signs, roofs.length);
       roofs.push(r);
@@ -271,7 +271,10 @@ function _bakeExterior(c, b, ox, oy, signs, roofIdx) {
     }
   }
   if (b.neon) { c.fillStyle = b.neon; c.globalAlpha = 0.8; c.fillRect(px, py, pw, 1); c.globalAlpha = 1; }
-  if (b.sign) signs.push({ x: b.x * TILE + pw / 2, y: b.y * TILE + ph - 9, text: b.sign.text, col: b.sign.col, big: shopsHasSign(null, b.sign.text), roof: roofIdx });
+  if (b.sign) {
+    const big = shopsHasSign(null, b.sign.text);
+    signs.push({ x: b.x * TILE + pw / 2, y: b.y * TILE + ph - (big ? 13 : 9), text: b.sign.text, col: b.sign.col, big, roof: roofIdx });
+  }
 }
 
 // interior view baked onto the ground canvas (revealed when the roof fades)
