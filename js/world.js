@@ -107,6 +107,7 @@ function genWorld() {
       }
       const roofsCol = ['#1c1c26', '#202030', '#24222e', '#1e242c'];
       for (const r of rects) {
+        setRect(r[0], r[1], r[2], r[3], WT.BLDG); // buildings are SOLID (the block fill made them sidewalk)
         const b = { x: r[0], y: r[1], w: r[2], h: r[3], roof: roofsCol[rng() * 4 | 0], neon: rng() < 0.4 ? dCol : null, sign: null };
         if (rng() < 0.4) b.sign = { text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] };
         if (rng() < 0.32) { b.ent = true; b.den = rng() < 0.5; b.theme = b.den ? 'den' : 'flat'; }

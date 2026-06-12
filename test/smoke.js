@@ -223,7 +223,30 @@ steps(90);
 assert(!watcher.alerted && watcher.detect === 0, 'enemy cannot see behind itself');
 watcher.lookA = Math.PI; // now facing V
 steps(180);
+if (!watcher.alerted) console.log('DBG', JSON.stringify({ d: Math.hypot(watcher.x-G.p.x, watcher.y-G.p.y)|0, det: +watcher.detect.toFixed(2), la: +watcher.lookA.toFixed(2), wx: watcher.x|0, wy: watcher.y|0, px: G.p.x|0, py: G.p.y|0, los: WORLD.losClear(watcher.x, watcher.y-4, G.p.x, G.p.y-4), seen: watcher.seen, dead: !!watcher.dead, inArr: G.enemies.includes(watcher), n: G.enemies.length, camo: G.p.camoT }));
 assert(watcher.alerted, 'enemy spots V inside its view cone');
+
+// ---- ALL buildings are solid (regression: pattern buildings were walkable) ----
+let solidCount = 0;
+for (let ty = 12; ty < 116; ty++) for (let tx = 12; tx < 116; tx++)
+  if (WORLD.t[ty * WORLD.W + tx] === 2) solidCount++;
+assert(solidCount > 600, 'city blocks contain solid building tiles (got ' + solidCount + ')');
+{
+  const dn0 = WORLD.dens[0];
+  assert(WORLD.solidAt(dn0.tx0, dn0.ty0), 'building wall corner is solid');
+  const midY = ((dn0.ty0 + dn0.ty1) / 2) * TILE;
+  assert(!WORLD.losClear((dn0.tx0 - 2) * TILE, midY, (dn0.tx1 + 3) * TILE, midY), 'walls block line of sight');
+  // V cannot walk through a wall (non-door column of the south face)
+  let wallTx = -1;
+  for (let tx = dn0.tx0; tx <= dn0.tx1; tx++) {
+    if (WORLD.t[dn0.ty1 * WORLD.W + tx] === 2 && !WORLD.blockedPx(tx * TILE + 8, (dn0.ty1 + 1) * TILE + 8)) { wallTx = tx; break; }
+  }
+  assert(wallTx >= 0, 'found a wall column with walkable ground below');
+  G.enemies = [];
+  G.p.x = wallTx * TILE + 8; G.p.y = (dn0.ty1 + 1) * TILE + 10;
+  G.keys.add('KeyW'); steps(60); G.keys.delete('KeyW');
+  assert(Math.floor(G.p.y / TILE) > dn0.ty1, 'V cannot step over building walls');
+}
 
 // ---- enterable buildings: roof fade, den ambush, clear bonus ----
 assert(WORLD.roofs.length > 0 && WORLD.dens.length > 0, 'interiors generated');
@@ -292,6 +315,8 @@ assert(G.airdrop && G.airdrop.state === 'falling', 'airdrop spawned');
 assert(WORLD.districtAt(G.airdrop.x, G.airdrop.y) === 'dogtown', 'airdrop targets dogtown');
 steps(60 * 7);
 assert(G.airdrop && G.airdrop.state === 'landed', 'airdrop landed');
+G.p.x = G.airdrop.x + 60; G.p.y = G.airdrop.y + 60; // approach → guards converge
+steps(20);
 assert(G.enemies.some(e => e.fac === 'barghest'), 'barghest converge on the drop');
 G.p.x = G.airdrop.x; G.p.y = G.airdrop.y + 10;
 const edBeforeDrop = G.eddies;

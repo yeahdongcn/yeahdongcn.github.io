@@ -1007,11 +1007,16 @@ function updateAirdrop(dt, dtW) {
       a.alt = 0; a.state = 'landed'; a.t = 90;
       SFX.explode(); G.shake = Math.max(G.shake, 3);
       addP(14, a.x, a.y, { col: '#8a7a5a', sp: 80, life: 0.5 });
-      spawnPack(a.x, a.y, irnd(3, 4), { alerted: true, alertT: 12, lkx: a.x, lky: a.y });
-      msg('SUPPLY DROP LANDED — BARGHEST CONVERGING', '#ff6a00');
+      msg('SUPPLY DROP LANDED — 90S BEFORE BARGHEST SECURES IT', '#ff6a00');
     }
   } else {
     a.t -= dt;
+    // the welcome squad shows up when V closes in (spawning earlier would despawn as strays)
+    if (!a.guarded && distPx(G.p.x, G.p.y, a.x, a.y) < 520) {
+      a.guarded = true;
+      spawnPack(a.x, a.y, irnd(3, 4), { alerted: true, alertT: 12, lkx: a.x, lky: a.y }, 30, 170);
+      msg('BARGHEST CONVERGING ON THE DROP', '#ff6a00');
+    }
     if (a.t <= 0) {
       G.airdrop = null; G.airdropT = rnd(150, 240);
       msg('BARGHEST SECURED THE AIRDROP. NEXT TIME, MERC', '#8a93a6');
@@ -1090,12 +1095,12 @@ function triggerDen(dn) {
   else dn.cleared = true;
 }
 
-function spawnPack(x, y, n, opts) {
+function spawnPack(x, y, n, opts, rMin, rMax) {
   const fac = DISTRICTS[WORLD.districtAt(x, y)].fac;
   const danger = DISTRICTS[WORLD.districtAt(x, y)].danger;
   const tier = danger + Math.floor(G.lvl / 4);
   for (let i = 0; i < n; i++) {
-    const s = findSpot(x, y, 8, 60); if (!s) continue;
+    const s = findSpot(x, y, rMin || 8, rMax || 60); if (!s) continue;
     const gun = Math.random() < FACTIONS[fac].gun;
     const heavy = tier >= 3 && Math.random() < 0.18;
     G.enemies.push(makeEnemy(s.x, s.y, tier, fac, heavy ? 'heavy' : gun ? 'gun' : 'melee', opts));
