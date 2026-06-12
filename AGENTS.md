@@ -11,6 +11,10 @@ node test/smoke.js     # THE gate. Headless sim of every system. Must pass (run 
 node --check js/*.js   # quick syntax sweep
 ```
 
+Deploys: `git push origin main` pushes to BOTH github.com/yeahdongcn/night-city-pixel (source)
+and github.com/yeahdongcn/yeahdongcn.github.io (live site at https://yeahdongcn.github.io/) —
+origin has two push URLs. Keep them in lockstep; don't push to one without the other.
+
 ## Project map
 
 | File | Owns |

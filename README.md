@@ -12,7 +12,7 @@ zero dependencies, zero asset files, one neon-soaked city generated from code.</
   <img alt="AI contributions welcome" src="https://img.shields.io/badge/AI_agents-welcome-00ff9f">
 </p>
 
-<p align="center">🎮 <a href="https://yeahdongcn.github.io/night-city-pixel/"><b>PLAY NOW IN YOUR BROWSER</b></a> — desktop <i>or</i> phone (twin-stick touch controls appear automatically)</p>
+<p align="center">🎮 <a href="https://yeahdongcn.github.io/"><b>PLAY NOW — yeahdongcn.github.io</b></a> — desktop <i>or</i> phone (twin-stick touch controls appear automatically)</p>
 
 <p align="center"><img src="screenshots/action.png" width="800" alt="Vehicular combat: blood tire-tracks across an intersection, loot drops glowing in the rain"></p>
 <p align="center"><i>Run a Scav pack over at full speed — the blood stays on the asphalt, the loot is yours.</i></p>
