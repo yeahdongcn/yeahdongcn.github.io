@@ -111,7 +111,7 @@ function applySave() {
   G.stats = Object.assign(G.stats, d.stats);
   G.skippyFound = !!d.skippyFound; G.bountyCount = d.bountyCount || 0;
   (d.dens || []).forEach(id => { const dn = WORLD.dens[id]; if (dn) { dn.cleared = true; dn.done = true; } });
-  if (!WORLD.solidPx(d.px, d.py)) { G.p.x = d.px; G.p.y = d.py; }
+  if (!WORLD.blockedPx(d.px, d.py)) { G.p.x = d.px; G.p.y = d.py; } // saves standing on old-version furniture fall back to spawn
   G.p.hp = d.hp || 100;
   return true;
 }
@@ -462,10 +462,17 @@ function updatePlayer(dt, dtP) {
 }
 
 function moveCollide(ent, dx, dy, r) {
-  if (dx && !WORLD.solidPx(ent.x + dx + Math.sign(dx) * r, ent.y - r * 0.6) && !WORLD.solidPx(ent.x + dx + Math.sign(dx) * r, ent.y + r * 0.6)) ent.x += dx;
-  if (dy && !WORLD.solidPx(ent.x - r * 0.6, ent.y + dy + Math.sign(dy) * r) && !WORLD.solidPx(ent.x + r * 0.6, ent.y + dy + Math.sign(dy) * r)) ent.y += dy;
+  if (dx && !WORLD.blockedPx(ent.x + dx + Math.sign(dx) * r, ent.y - r * 0.6) && !WORLD.blockedPx(ent.x + dx + Math.sign(dx) * r, ent.y + r * 0.6)) ent.x += dx;
+  if (dy && !WORLD.blockedPx(ent.x - r * 0.6, ent.y + dy + Math.sign(dy) * r) && !WORLD.blockedPx(ent.x + r * 0.6, ent.y + dy + Math.sign(dy) * r)) ent.y += dy;
   ent.x = clamp(ent.x, 8, WORLD.W * TILE - 8); ent.y = clamp(ent.y, 8, WORLD.H * TILE - 8);
 }
+
+const SHOP_PROMPTS = {
+  guns: 'BROWSE IRON — WILSON',
+  ripper: 'GET CHROMED — VIKTOR',
+  cars: 'BROWSE RIDES — DAKOTA',
+  bar: 'ORDER A DRINK — CLAIRE',
+};
 
 function interactScan() {
   G.prompt = null;
@@ -473,7 +480,7 @@ function interactScan() {
   for (const k of ['guns', 'ripper', 'cars', 'bar']) {
     const s = WORLD.shops[k];
     if (distPx(p.x, p.y, s.x, s.y) < 26) {
-      G.prompt = '[E] ENTER ' + s.name;
+      G.prompt = '[E] ' + SHOP_PROMPTS[k];
       if (press('KeyE')) { G.ui = k === 'bar' ? 'bar' : k; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; SFX.ui(); }
       return;
     }
@@ -946,6 +953,7 @@ function triggerDen(dn) {
   for (let k = 0; k < want && spots.length; k++) {
     const s = spots.splice(Math.random() * spots.length | 0, 1)[0];
     if (distPx(s.x, s.y, G.p.x, G.p.y) < 26) continue; // never on top of V
+    if (WORLD.blockedPx(s.x, s.y)) continue;           // never inside furniture
     G.enemies.push(makeEnemy(s.x, s.y, tier, dist.fac, Math.random() < 0.5 ? 'gun' : 'melee', { denId: dn.id }));
     dn.left++;
   }
@@ -1149,7 +1157,7 @@ function exitCar() {
   const a = c.a + Math.PI / 2;
   for (const off of [a, a + Math.PI, c.a, c.a + Math.PI]) {
     const x = c.x + Math.cos(off) * 22, y = c.y + Math.sin(off) * 22;
-    if (!WORLD.solidPx(x, y)) { G.p.x = x; G.p.y = y; break; }
+    if (!WORLD.blockedPx(x, y)) { G.p.x = x; G.p.y = y; break; }
   }
   SFX.engine(false, 0);
 }
@@ -1202,7 +1210,7 @@ function updateCar(dt, rdt) {
     let blocked = false;
     for (const [ox, oy] of [[hl, 0], [-hl, 0], [0, hw], [0, -hw]]) {
       const wx2 = nx + hx * ox - hy * oy, wy2 = ny + hy * ox + hx * oy;
-      if (WORLD.solidPx(wx2, wy2)) { blocked = true; break; }
+      if (WORLD.blockedPx(wx2, wy2)) { blocked = true; break; }
     }
     if (blocked) {
       const sp = Math.hypot(c.vx, c.vy);

@@ -26,7 +26,7 @@ function genWorld() {
     for (let y = lo; y <= hi; y++) for (let x = r; x < r + 4; x++) { t[idx(x, y)] = WT.ROAD; t[idx(y, x)] = WT.ROAD; }
   }
 
-  const bldgs = [], alleys = [], crateSpots = [], vends = [], holos = [], signs = [], lights = [], puddles = [], wrecks = [], trees = [], displays = [], roofs = [], dens = [], npcs = [];
+  const bldgs = [], alleys = [], crateSpots = [], vends = [], holos = [], signs = [], lights = [], puddles = [], wrecks = [], trees = [], displays = [], roofs = [], dens = [], npcs = [], obst = [];
   const shops = {};
   let spawnPt = null;
 
@@ -184,7 +184,7 @@ function genWorld() {
   for (const b of bldgs) {
     if (b.ent) {
       const r = { x: b.x * TILE, y: b.y * TILE, w: b.w * TILE, h: b.h * TILE, cv: mkCanvas(b.w * TILE, b.h * TILE), a: 1, tx0: b.x, ty0: b.y, tx1: b.x + b.w - 1, ty1: b.y + b.h - 1, lights: [] };
-      _bakeInterior(c, b, r, rng, npcs);
+      _bakeInterior(c, b, r, rng, npcs, obst);
       _bakeExterior(r.cv.getContext('2d'), b, -b.x * TILE, -b.y * TILE, signs, roofs.length);
       roofs.push(r);
     } else {
@@ -210,9 +210,18 @@ function genWorld() {
   else skippySpot = { x: RD[5] * TILE, y: RD[5] * TILE };
 
   WORLD = {
-    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, displays, spawn, skippySpot, roofs, dens, npcs,
+    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, displays, spawn, skippySpot, roofs, dens, npcs, obst,
     solidAt(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H || t[ty * W + tx] === WT.BLDG; },
     solidPx(x, y) { return this.solidAt(Math.floor(x / TILE), Math.floor(y / TILE)); },
+    // walls + furniture/NPC bodies: blocks movers; bullets use solidPx and fly over furniture
+    blockedPx(x, y) {
+      if (this.solidPx(x, y)) return true;
+      for (let i = 0; i < obst.length; i++) {
+        const o = obst[i];
+        if (x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h) return true;
+      }
+      return false;
+    },
     tileAt(x, y) {
       const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
       return (tx < 0 || ty < 0 || tx >= W || ty >= H) ? WT.BLDG : t[ty * W + tx];
@@ -266,7 +275,8 @@ function _bakeExterior(c, b, ox, oy, signs, roofIdx) {
 }
 
 // interior view baked onto the ground canvas (revealed when the roof fades)
-function _bakeInterior(c, b, r, rng, npcs) {
+// furniture that should block movement registers a rect in `obst` (bullets fly over — it's waist-high)
+function _bakeInterior(c, b, r, rng, npcs, obst) {
   const px = b.x * TILE, py = b.y * TILE, pw = b.w * TILE, ph = b.h * TILE;
   const fx = px + TILE, fy = py + TILE, fw = pw - 2 * TILE, fh = ph - 2 * TILE;
   const floorCol = { bar: '#241a14', guns: '#1b1d24', ripper: '#19232a', cars: '#1d1d22', den: '#1d191d', flat: '#211d1a' }[b.theme] || '#1c1c22';
@@ -283,7 +293,12 @@ function _bakeInterior(c, b, r, rng, npcs) {
     c.fillStyle = '#2a3a44'; c.fillRect(dx * TILE + 3, py + ph - 10, 10, 6);
   }
   const cx = fx + fw / 2, NAMES = { guns: 'WILSON', ripper: 'VIKTOR', cars: 'DAKOTA', bar: 'CLAIRE' };
-  const counter = col => { c.fillStyle = col; c.fillRect(fx + 4, fy + 12, fw - 8, 9); c.fillStyle = shade(col, 18); c.fillRect(fx + 4, fy + 12, fw - 8, 2); };
+  const solid = (x, y, w, h) => obst.push({ x, y, w, h });
+  const counter = col => {
+    c.fillStyle = col; c.fillRect(fx + 4, fy + 12, fw - 8, 9);
+    c.fillStyle = shade(col, 18); c.fillRect(fx + 4, fy + 12, fw - 8, 2);
+    solid(fx + 4, fy + 12, fw - 8, 9);
+  };
   switch (b.theme) {
     case 'bar':
       counter('#3a2a20');
@@ -295,28 +310,36 @@ function _bakeInterior(c, b, r, rng, npcs) {
       counter('#2a2e38');
       for (let gy2 = fy + 26; gy2 < fy + fh - 6; gy2 += 9) { c.fillStyle = '#10141c'; c.fillRect(fx + 4, gy2, 14, 6); c.fillStyle = '#8a93a6'; c.fillRect(fx + 6, gy2 + 2, 10, 1); }
       for (let gy2 = fy + 26; gy2 < fy + fh - 6; gy2 += 9) { c.fillStyle = '#10141c'; c.fillRect(fx + fw - 18, gy2, 14, 6); c.fillStyle = '#8a93a6'; c.fillRect(fx + fw - 16, gy2 + 2, 10, 1); }
+      solid(fx + 4, fy + 26, 14, Math.max(6, fh - 32));      // west rack column
+      solid(fx + fw - 18, fy + 26, 14, Math.max(6, fh - 32)); // east rack column
       r.lights.push({ x: cx, y: fy + 14, col: '#f9f002' });
       break;
     case 'ripper':
       counter('#26303a');
       c.fillStyle = '#30343c'; c.fillRect(cx - 6, fy + 28, 12, 18);    // chair
       c.fillStyle = '#3c424c'; c.fillRect(cx - 4, fy + 26, 8, 4);
-      c.fillStyle = '#0a4a55'; c.fillRect(fx + 5, fy + 6, 12, 5);      // monitor
+      solid(cx - 6, fy + 26, 12, 20);
+      c.fillStyle = '#0a4a55'; c.fillRect(fx + 5, fy + 6, 12, 5);      // monitor (wall-mounted)
       r.lights.push({ x: fx + 11, y: fy + 8, col: '#05d9e8' });
       break;
     case 'cars':
       counter('#2c2c34');
       c.strokeStyle = '#3a3e48'; c.strokeRect(cx - 14.5, fy + 27.5, 29, 20); // lift
+      solid(cx - 15, fy + 27, 30, 21);
       c.fillStyle = '#7a2020'; c.fillRect(fx + 5, fy + 28, 8, 6);      // toolbox
+      solid(fx + 5, fy + 28, 8, 6);
       c.fillStyle = '#0c0c10';
       c.beginPath(); c.ellipse(fx + fw - 12, fy + fh - 10, 5, 3, 0, 0, Math.PI * 2); c.fill();
       c.beginPath(); c.ellipse(fx + fw - 12, fy + fh - 14, 5, 3, 0, 0, Math.PI * 2); c.fill();
+      solid(fx + fw - 17, fy + fh - 17, 10, 10);                       // tire stack
       r.lights.push({ x: cx, y: fy + 14, col: '#00ff9f' });
       break;
     case 'den': {
       c.fillStyle = '#10141c'; c.fillRect(fx + 4, fy + 8, 16, 6);      // weapon rack
       c.fillStyle = '#8a93a6'; c.fillRect(fx + 6, fy + 10, 12, 1);
+      solid(fx + 4, fy + 8, 16, 6);
       c.fillStyle = '#2c2620'; c.fillRect(cx - 9, fy + fh / 2 - 5, 18, 10); // table
+      solid(cx - 9, fy + fh / 2 - 5, 18, 10);
       const tag = NEON[rng() * NEON.length | 0];
       c.fillStyle = tag;
       for (let k = 0; k < 6; k++) c.fillRect(fx + 4 + rng() * (fw - 10), fy + 6 + rng() * (fh - 12), 2 + (rng() * 3 | 0), 1);
@@ -326,11 +349,17 @@ function _bakeInterior(c, b, r, rng, npcs) {
     default: // flat
       c.fillStyle = '#28323e'; c.fillRect(fx + fw - 18, fy + 6, 14, 20); // bed
       c.fillStyle = '#cfd6e4'; c.fillRect(fx + fw - 16, fy + 8, 10, 4);
+      solid(fx + fw - 18, fy + 6, 14, 20);
       c.fillStyle = '#2c2620'; c.fillRect(cx - 8, fy + fh / 2, 16, 10);  // table
-      c.fillStyle = '#0a2a3a'; c.fillRect(fx + 4, fy + 7, 10, 6);        // tv
+      solid(cx - 8, fy + fh / 2, 16, 10);
+      c.fillStyle = '#0a2a3a'; c.fillRect(fx + 4, fy + 7, 10, 6);        // tv stand
+      solid(fx + 4, fy + 7, 10, 6);
       r.lights.push({ x: fx + 9, y: fy + 10, col: '#7ad7ff' });
   }
-  if (NAMES[b.theme]) npcs.push({ x: cx, y: fy + 8, i: { guns: 2, ripper: 0, cars: 5, bar: 4 }[b.theme], name: NAMES[b.theme] });
+  if (NAMES[b.theme]) {
+    npcs.push({ x: cx, y: fy + 8, i: { guns: 2, ripper: 0, cars: 5, bar: 4 }[b.theme], name: NAMES[b.theme] });
+    solid(cx - 4, fy + 2, 8, 9); // the vendor has a body — no walking through them
+  }
 }
 
 function shopsHasSign(shops, text) {

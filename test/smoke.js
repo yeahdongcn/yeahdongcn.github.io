@@ -252,7 +252,21 @@ G.p.x = WORLD.shops.guns.x; G.p.y = WORLD.shops.guns.y;
 steps(2);
 G.pressed.add('KeyE'); steps(2);
 assert(G.ui === 'guns', 'walk-in shop counter opens shop');
+assert(G.prompt && G.prompt.includes('WILSON'), 'counter prompt names the vendor');
 G.ui = null;
+
+// ---- furniture & NPC collision: the bar counter blocks V ----
+assert(WORLD.obst.length > 20, 'interior obstacles registered');
+const barObst = WORLD.obst.find(o =>
+  o.w > 40 && Math.abs(o.x + o.w / 2 - WORLD.shops.bar.x) < 4 && Math.abs(o.y - (WORLD.shops.bar.y - 12)) < 6);
+assert(barObst, 'bar counter obstacle exists');
+G.enemies = [];
+G.p.x = barObst.x + barObst.w / 2; G.p.y = barObst.y + barObst.h + 8;
+G.keys.add('KeyW');
+steps(80);
+G.keys.delete('KeyW');
+assert(G.p.y >= barObst.y + barObst.h - 0.01, 'cannot walk through the bar counter');
+assert(!WORLD.blockedPx(G.p.x, G.p.y), 'player not stuck inside furniture');
 
 // ---- legacy save (pre-gender/dens fields) still continues ----
 localStorage.setItem('ncpx2077_v1', JSON.stringify({
