@@ -1,88 +1,102 @@
-# NIGHT CITY — Pixel Edition
+<h1 align="center">🌃 NIGHT CITY — Pixel Edition</h1>
 
-A pixel-art, top-down cyberpunk action game that runs entirely in the browser.
-Pure HTML5 Canvas + vanilla JS — no dependencies, no build step, no asset files
-(every sprite, the city, and the synthwave soundtrack are generated procedurally at boot).
+<p align="center"><b>Collect iron. Buy chrome. Own the streets.</b><br>
+A pixel-art cyberpunk action RPG that runs entirely in your browser —<br>
+zero dependencies, zero asset files, one neon-soaked city generated from code.</p>
 
-An unofficial fan tribute inspired by Cyberpunk 2077. Not affiliated with CD PROJEKT RED.
-All pixels and code are original. Personal/educational use.
+<p align="center">
+  <img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-f9f002">
+  <img alt="vanilla JS" src="https://img.shields.io/badge/vanilla_JS-zero_deps-05d9e8">
+  <img alt="procedural" src="https://img.shields.io/badge/art_%26_music-100%25_procedural-ff2a6d">
+  <img alt="moddable" src="https://img.shields.io/badge/mods-NCPX_API-bd00ff">
+  <img alt="AI contributions welcome" src="https://img.shields.io/badge/AI_agents-welcome-00ff9f">
+</p>
+
+<p align="center"><img src="screenshots/action.png" width="800" alt="Vehicular combat: blood tire-tracks across an intersection, loot drops glowing in the rain"></p>
+<p align="center"><i>Run a Scav pack over at full speed — the blood stays on the asphalt, the loot is yours.</i></p>
+
+## What you do
+
+Pick your V, roll a random starter kit, and work Night City: hunt **bounties**, take down
+**cyberpsychos** for one-of-a-kind iconic weapons, crack **gang hideouts** and **loot crates**,
+race the Barghest to **Militech airdrops** over Dogtown — then spend every eddie at the
+gun store, the autofixer, and the ripperdoc.
+
+- 🔫 **39-weapon database** — power / tech (piercing) / smart (homing) classes, 8 cyberpsycho-only
+  iconics, a hidden talking pistol, and 4 cyber-arm weapons (Mantis Blades, Gorilla Arms, Monowire, launcher)
+- 🚗 **12 vehicles** with drift physics, full-body run-over combat, blood decals, and street delivery on **V**
+- 🦾 **17 cyberware implants** — Sandevistan bullet-time, Berserk, Kerenzikov, Optical Camo,
+  Second Heart, Smart Link, and more, most with 3 upgrade marks
+- 👁 **Real stealth** — enemies have view cones, wall occlusion, suspicion meters, and last-known-position
+  searches; melee takedowns hit 2.5×; dive into district flora to vanish from sight
+- 🏢 **Enterable buildings** — GTA-style roof reveal, walk-in shops with vendors, furnished interiors, gang dens
+- 🌧 **Random weather** — clear nights, storms, fog, acid drizzle, smog; fog genuinely shortens enemy vision
+- 📻 **5-station MIDI radio**, joytoys & the CLOUDS dollhouse, six districts with their own gangs and danger ★ ratings
+- 💾 Autosaves to localStorage · 🧩 **mod API** so players become creators
+
+## Gallery
+
+| | |
+|:---:|:---:|
+| <img src="screenshots/title.png" width="400"><br><i>Jack in</i> | <img src="screenshots/charsel.png" width="400"><br><i>Choose your V</i> |
+| <img src="screenshots/interior.png" width="400"><br><i>Walk-in shops: Wilson's gun racks</i> | <img src="screenshots/jigjig.png" width="400"><br><i>Jig-Jig Street & the CLOUDS dollhouse</i> |
+| <img src="screenshots/airdrop.png" width="400"><br><i>Militech airdrop inbound over Dogtown</i> | <img src="screenshots/storm.png" width="400"><br><i>Storm over the City Center</i> |
 
 ## Run it
 
 ```bash
-cd night-city-pixel
+git clone https://github.com/yeahdongcn/night-city-pixel && cd night-city-pixel
 ./run.sh                      # serves on http://localhost:8080
-# or: python3 -m http.server 8080
-# or: npx serve .
+# or: python3 -m http.server 8080   ·   or: npx serve .   ·   or just open index.html
 ```
 
-Then open http://localhost:8080 in a desktop browser (Chrome/Firefox/Edge).
-Opening `index.html` directly from disk also works.
-Click once on the page to enable audio. Keyboard + mouse required.
-
-## The loop
-
-Pick your V (male or female) on new game and roll a **random starter kit** — one
-weapon, one ride. Then: hunt **bounties** (red on the minimap) → earn **eddies (€$)**
-and street cred → spend them at the three shops near spawn → take on
-**cyberpsychos** for iconic loot. Five radio stations keep you company (**N** to dial).
-
-- **2ND AMENDMENT** `[G]` — 25 weapons for sale: power / tech (piercing) / smart (homing) pistols, SMGs, rifles, shotguns, snipers, LMG, blades. Stock unlocks as you level.
-- **NC AUTOFIXER** `[A]` — 12 vehicles, from a €$3,200 Thorton beater to the €$157,000 Rayfield Caliburn, plus two bikes. Press **V** anywhere to have your active ride delivered. Run gonks over — full-body hit detection, speed-scaled damage, blood spray, and stains that stay on the asphalt.
-- **VIK'S CLINIC** `[R]` — 17 pieces of cyberware across 10 body slots, most with 3 upgrade marks: **Sandevistan** (bullet-time), Berserk, Kerenzikov (slow-mo dash), Optical Camo, Second Heart, Subdermal Armor, Smart Link (enables smart guns), Mantis Blades / Gorilla Arms / Monowire / Projectile Launch System, and more.
-- **AFTERLIFE** `[B]` — drinks heal. Vending machines sell MaxDocs.
-
-### Collection goals (TAB)
-- **Weapon database: 38** — 25 shop guns + 4 cyber-arm weapons + **8 iconics dropped only by cyberpsychos** (every 3rd bounty summons one) + 1 hidden talking pistol lost in a gutter somewhere…
-- **Garage: 12 vehicles** · **Chrome: 17 implants** · full stats page with net worth.
-
-A **random weather system** rolls clear nights, drizzle, thunderstorms, fog, acid
-drizzle, and smog — fog and storms genuinely shorten enemy sight lines. Each district
-grows its own **flora** (corpo hedges, Japantown blossoms, Pacifica tall grass,
-Dogtown dry brush…), and standing in any bush **conceals V** from enemy view cones —
-break line of sight, dive into the greenery, and watch them sweep past.
-
-Six districts (Watson, Westbrook, City Center, Santo Domingo, Pacifica — and **Dogtown**,
-the ★★★★ Barghest-held corner in the south-west) with their own gangs and danger ratings.
-**Airdrops** parachute into Dogtown every few minutes: race the Barghest squad to the
-container for eddies, MaxDocs, and rarity-boosted gear. And when the city wears you down,
-**Jig-Jig Street** (NE) has joytoys to chat up — or visit EVE at the CLOUDS dollhouse —
-for a fade-to-black good time that fully rests V and grants a crit/XP euphoria buff.
+Desktop browser, keyboard + mouse. Click once to enable audio.
 
 ## Controls
 
-| Key | Action |
-|---|---|
-| WASD | Move / drive |
-| Mouse + LMB | Aim / fire / swing |
-| Space | Dash (handbrake in car) |
-| R | Reload |
-| 1 / 2 / 3 / wheel | Weapon slots |
-| Q | OS ability (Sandevistan / Berserk) |
-| F | Optical camo |
-| C | MaxDoc (heal) |
-| E | Interact (shops, vending, vehicle) |
-| V | Summon / enter / exit vehicle |
-| N | Radio — cycle 5 stations + off |
-| TAB | Inventory · collections · stats |
-| M | Mute · ESC | Pause |
+| Key | Action | Key | Action |
+|---|---|---|---|
+| WASD | Move / drive | Q | OS ability (Sandevistan / Berserk) |
+| Mouse + LMB | Aim / fire / swing | F | Optical camo |
+| Space | Dash (handbrake in car) | C | MaxDoc heal |
+| R | Reload | E | Interact |
+| 1/2/3 · wheel | Weapon slots | V | Summon / enter / exit vehicle |
+| N | Radio dial | TAB | Inventory · collections · stats |
+| M | Mute | ESC | Pause |
 
-Progress autosaves to localStorage every 12 seconds.
+## Mods — players become creators
 
-## Open source · players become creators
+The game ships with a mod loader: edit **`mods/mods.js`**, refresh, done. Add weapons,
+vehicles, cyberware, radio stations, and event hooks — they appear in the shops, the
+collection database, the garage, and on the radio dial. No build step.
+Full API + a working sample mod: **[MODDING.md](MODDING.md)**.
 
-MIT licensed (see LICENSE — code, art, and audio are all original; the fan-tribute
-disclaimer applies to the universe it riffs on). The game ships with a **mod loader**:
-drop content into `mods/mods.js` — new weapons, vehicles, cyberware, radio stations,
-and event hooks — refresh, and it's live in the shops, collections, and radio dial.
-No build step, no tooling. See **MODDING.md** for the full API and a working sample
-mod. PRs to the core game are welcome; `node test/smoke.js` must stay green.
+## Contributing — humans *and* AI agents welcome
+
+This game was built almost entirely by an AI coding agent (Claude) pair-programming with a
+human director — so AI-assisted and fully agentic PRs aren't just tolerated here, they're
+the house style. Bring your own agent.
+
+- **Agents:** read **[AGENTS.md](AGENTS.md)** first — project map, invariants, and the rules
+  that keep saves and determinism intact.
+- **Everyone:** `node test/smoke.js` must stay green, keep the zero-dependency /
+  zero-binary-asset rule (all art and audio are procedural), and bump the `?v=` cache
+  version in `index.html` when you ship.
+- Content additions (weapons/cars/stations) are usually better as **mods**; engine PRs
+  should come with smoke-test coverage.
 
 ## Tech notes
 
-- 640×360 internal canvas, integer-scaled with `image-rendering: pixelated`; custom 3×5 bitmap font.
-- 128×128-tile city pre-rendered once to an offscreen canvas (deterministic seed so saves stay valid).
-- WebAudio: all SFX synthesized; MIDI-style radio with 5 composed stations (synthwave, vaporwave, funk, dream-pop, industrial) on one 64-step sequencer — stations are data, so mods can add their own.
-- HiDPI-aware integer scaling: the canvas size is chosen in device pixels, so retina/2× displays (and fractional Windows scaling) stay pixel-crisp.
-- `node test/smoke.js` runs a headless simulation of every system (combat, shops, driving, psychos, death, save/load) against stubbed DOM/canvas.
-- Debug URLs: `?autostart` skips the title menu; `?demo` also fast-forwards ~4s with enemies and a delivered car (handy for headless screenshots).
+- 640×360 internal canvas, HiDPI-aware integer scaling (`image-rendering: pixelated`), custom 3×5 bitmap font.
+- 128×128-tile city pre-rendered to offscreen canvases (deterministic seed so saves stay valid);
+  per-building fading roof layers for interiors; two-pass entity rendering for correct facade depth.
+- WebAudio: every sound synthesized; the radio is one 64-step sequencer driven by station data.
+- `node test/smoke.js` — headless simulation of every system (combat, stealth, shops, driving,
+  psychos, airdrops, weather, save/load) against stubbed DOM/canvas.
+- Debug URLs: `?autostart`, `?demo`, `?charsel`, `?indoor`, `?jigjig`, `?airdrop`, `&wx=storm|fog|acid|…`, `&v=f`.
+
+## License
+
+MIT (see [LICENSE](LICENSE)). **Unofficial fan tribute** inspired by Cyberpunk 2077 — not
+affiliated with or endorsed by CD PROJEKT RED. All code, pixel art, and audio are original;
+in-universe names appear in a non-commercial fan context.
