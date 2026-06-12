@@ -427,7 +427,19 @@ function updatePlayer(dt, dtP) {
   if (G.cyber.biomonitor && p.hp < p.maxhp * 0.3 && p.bioCd <= 0 && G.maxdocs > 0 && p.useT <= 0) {
     G.maxdocs--; p.useT = 0.4; p.bioCd = 45; msg('BIOMONITOR: MAXDOC AUTO-INJECTED', '#2ecc71');
   }
-  if (press('KeyC') && G.maxdocs > 0 && p.useT <= 0 && p.hp < p.maxhp) { G.maxdocs--; p.useT = 1.0; SFX.drink(); }
+  if (press('KeyC') && p.useT <= 0) {
+    if (G.maxdocs <= 0) { msg('NO MAXDOCS — VENDING MACHINES SELL THEM FOR €$50', '#ff5a5a'); SFX.deny(); }
+    else if (p.hp >= p.maxhp) { msg('HP ALREADY FULL', '#8a93a6'); }
+    else { G.maxdocs--; p.useT = 1.0; SFX.drink(); }
+  }
+  // coach mark: don't let players bleed out not knowing the heal key
+  if (p.hp < p.maxhp * 0.35) {
+    G.healHintT = (G.healHintT || 0) - dt;
+    if (G.healHintT <= 0) {
+      G.healHintT = 12;
+      msg(G.maxdocs > 0 ? 'LOW HP — PRESS [C] TO USE A MAXDOC' : 'LOW HP — BUY A MAXDOC AT A VENDING MACHINE [E]', G.maxdocs > 0 ? '#2ecc71' : '#ff9f1c');
+    }
+  }
   // OS ability
   if (press('KeyQ') && G.os && p.osCd <= 0 && p.osT <= 0) {
     const t = CYB[G.os].tiers[G.cyber[G.os] - 1];

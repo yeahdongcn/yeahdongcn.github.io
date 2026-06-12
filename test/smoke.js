@@ -381,6 +381,17 @@ steps(150);
 assert(G.wfx.density > 80, 'storm ramps rain density');
 setWeather('drizzle');
 
+// ---- heal UX: C always answers, even on failure ----
+G.ui = null; G.p.useT = 0; G.cyber.biomonitor = 0; // keep auto-inject out of the way
+G.maxdocs = 0; G.p.hp = G.p.maxhp * 0.5;
+G.pressed.add('KeyC'); steps(2);
+assert(G.msgs.some(m => m.text.includes('MAXDOC')), 'pressing C with no docs explains itself');
+G.maxdocs = 1;
+G.pressed.add('KeyC'); steps(2);
+assert(G.maxdocs === 0 && G.p.useT > 0, 'C consumes a maxdoc and starts the injector');
+steps(80);
+assert(G.p.hp > G.p.maxhp * 0.5, 'maxdoc restored health');
+
 // ---- legacy save (pre-gender/dens fields) still continues ----
 localStorage.setItem('ncpx2077_v1', JSON.stringify({
   v: 1, eddies: 777, lvl: 3, xp: 10, maxdocs: 1,

@@ -72,7 +72,7 @@ function drawTitle(c) {
   }
   if (press('Enter') || press('Space')) titleSelect(G.uiS.sel);
 
-  drawTextC(c, 'WASD MOVE · MOUSE SHOOT · SPACE DASH · E INTERACT · V VEHICLE · N RADIO · TAB GEAR', VIEW_W / 2, 300, '#5a6372', 1);
+  drawTextC(c, 'WASD MOVE · MOUSE SHOOT · SPACE DASH · C HEAL · E INTERACT · V VEHICLE · N RADIO · TAB GEAR', VIEW_W / 2, 300, '#5a6372', 1);
   drawTextC(c, 'UNOFFICIAL FAN TRIBUTE · ALL PIXELS HANDMADE · NOT AFFILIATED WITH CDPR', VIEW_W / 2, 330, '#3a414e', 1);
   drawCursorSpr(c);
 }
@@ -133,9 +133,10 @@ function drawHUD(c) {
     uiBar(c, cx, cy, 36, 8, p.camoT > 0 ? 1 : 1 - Math.max(0, p.camoCd) / CYB.camo.tiers[0].cd, '#05d9e8');
     drawText(c, 'F CAMO', cx + 2, cy + 1, '#06060a', 1); cx += 40;
   }
-  drawText(c, 'C×' + G.maxdocs, cx, cy + 1, G.maxdocs > 0 ? '#2ecc71' : '#5a6372', 1);
-  if (p.useT > 0) { uiBar(c, cx, cy + 8, 30, 2, 1 - p.useT, '#2ecc71'); }
-  if (p.joyT > 0) drawText(c, '♥' + Math.ceil(p.joyT), cx + 26, cy + 1, '#ff2a6d', 1);
+  const docLabel = 'C MAXDOC ×' + G.maxdocs;
+  drawText(c, docLabel, cx, cy + 1, G.maxdocs > 0 ? '#2ecc71' : '#5a6372', 1);
+  if (p.useT > 0) { uiBar(c, cx, cy + 8, textW(docLabel), 2, 1 - p.useT, '#2ecc71'); }
+  if (p.joyT > 0) drawText(c, '♥' + Math.ceil(p.joyT), cx + textW(docLabel) + 8, cy + 1, '#ff2a6d', 1);
   if (G.pHidden && !G.driving) drawText(c, 'CONCEALED', 8, cy + 12, '#00ff9f', 1);
 
   drawMinimap(c);
