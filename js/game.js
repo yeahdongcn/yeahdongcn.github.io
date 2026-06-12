@@ -198,12 +198,14 @@ function boot() {
     startGame(false);
     G.p.x = WORLD.shops.guns.x; G.p.y = WORLD.shops.guns.y + 6;
     for (let i = 0; i < 90; i++) step(1 / 60);
+    G.bannerO = null;
   } else if (/doorstep/.test(q)) { // screenshot helper: stand at the Afterlife door, outside
     startGame(false);
     const bs = WORLD.signs.find(s => s.text === 'AFTERLIFE');
     const r = WORLD.roofs[bs.roof];
     G.p.x = r.doorTx[0] * TILE + 8; G.p.y = (r.doorTy + 1) * TILE + 10;
     for (let i = 0; i < 90; i++) step(1 / 60);
+    G.bannerO = null;
   }
   if (/demo/.test(q)) {
     G.eddies = 60000;

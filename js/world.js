@@ -273,7 +273,8 @@ function _bakeExterior(c, b, ox, oy, signs, roofIdx) {
   if (b.neon) { c.fillStyle = b.neon; c.globalAlpha = 0.8; c.fillRect(px, py, pw, 1); c.globalAlpha = 1; }
   if (b.sign) {
     const big = shopsHasSign(null, b.sign.text);
-    signs.push({ x: b.x * TILE + pw / 2, y: b.y * TILE + ph - (big ? 13 : 9), text: b.sign.text, col: b.sign.col, big, roof: roofIdx });
+    // mounted ABOVE the facade band (windows/door live in the bottom 10px)
+    signs.push({ x: b.x * TILE + pw / 2, y: b.y * TILE + ph - (big ? 24 : 17), text: b.sign.text, col: b.sign.col, big, roof: roofIdx });
   }
 }
 
