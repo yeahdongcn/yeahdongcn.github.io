@@ -429,6 +429,30 @@ touchBtnDown('inv');
 assert(G.ui === 'inv', 'virtual BAG button opens inventory');
 touchBtnDown('pause');
 assert(G.ui === null, 'virtual pause/✕ closes menus');
+
+// weapon switching on touch: WPN cycle button + tappable slot boxes
+giveWeapon('knife', true); // fills slot 1
+G.slot = 0;
+touchBtnDown('wpn');
+assert(G.slot === 1, 'WPN button cycles to the next slot');
+touchStartPt(77, { x: (640 - 148) + 78 + 10, y: (360 - 46) + 22 }); // tap slot box 1
+assert(G.slot === 0, 'tapping a slot box equips it');
+touchStartPt(76, { x: 640 - 60, y: 360 - 40 }); // tap card body = reload
+assert(G.pressed.has('KeyR'), 'tapping the weapon card reloads');
+G.pressed.clear();
+
+// dialog dismissal: tap outside + ✕ + gender back-out
+openTalk(WORLD.npcs.find(n => n.kind === 'joy'));
+assert(G.ui === 'talk', 'talk open');
+touchStartPt(75, { x: 20, y: 40 }); touchEndPt(75, { x: 20, y: 40 });
+assert(G.ui === null, 'tap outside a dialog dismisses it');
+G.ui = 'guns'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+touchStartPt(74, { x: 612, y: 24 });
+assert(G.ui === null, 'the ✕ button closes shop menus');
+G.state = 'title'; G.titleMode = 'gender';
+touchStartPt(73, { x: 612, y: 24 });
+assert(G.titleMode === 'menu', 'the ✕ backs out of character select');
+G.state = 'play'; G.titleMode = 'menu';
 TOUCH.on = false;
 
 console.log('SMOKE OK —',

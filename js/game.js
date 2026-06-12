@@ -34,18 +34,20 @@ const TOUCH = {
   firing: false,
 };
 
+// thumb-sized: on a phone 1 canvas px ≈ 1pt, so r≥17 keeps targets near the 44pt guideline
 function touchButtons() {
   const B = [
-    { k: 'dash', x: 470, y: 316, r: 20, label: 'DASH' },
-    { k: 'use', x: 462, y: 252, r: 16, label: 'E' },
-    { k: 'doc', x: 506, y: 220, r: 14, label: 'C' },
-    { k: 'car', x: 424, y: 218, r: 14, label: 'V' },
-    { k: 'pause', x: 284, y: 16, r: 11, label: 'II' },
-    { k: 'inv', x: 316, y: 16, r: 11, label: 'BAG' },
-    { k: 'radio', x: 350, y: 16, r: 11, label: 'FM' },
+    { k: 'dash', x: 466, y: 312, r: 24, label: 'DASH' },
+    { k: 'use', x: 452, y: 248, r: 20, label: 'E' },
+    { k: 'wpn', x: 396, y: 290, r: 20, label: 'WPN' },
+    { k: 'doc', x: 504, y: 214, r: 17, label: 'C' },
+    { k: 'car', x: 412, y: 212, r: 17, label: 'V' },
+    { k: 'pause', x: 270, y: 20, r: 16, label: 'II' },
+    { k: 'inv', x: 318, y: 20, r: 16, label: 'BAG' },
+    { k: 'radio', x: 366, y: 20, r: 16, label: 'FM' },
   ];
-  if (G.os) B.push({ k: 'os', x: 552, y: 200, r: 14, label: 'Q' });
-  if (G.cyber.camo) B.push({ k: 'camo', x: 598, y: 214, r: 14, label: 'F' });
+  if (G.os) B.push({ k: 'os', x: 554, y: 198, r: 17, label: 'Q' });
+  if (G.cyber.camo) B.push({ k: 'camo', x: 600, y: 212, r: 17, label: 'F' });
   return B;
 }
 
@@ -57,6 +59,7 @@ function touchBtnDown(k) {
   else if (k === 'camo') G.pressed.add('KeyF');
   else if (k === 'car') G.pressed.add('KeyV');
   else if (k === 'radio') G.pressed.add('KeyN');
+  else if (k === 'wpn') cycleSlot(1);
   else if (k === 'pause') escAction();
   else if (k === 'inv') toggleInv();
 }
@@ -64,21 +67,38 @@ function touchBtnUp(k) { if (k === 'dash') G.keys.delete('Space'); }
 
 function touchMenuMode() { return G.state !== 'play' || !!G.ui; }
 
+function touchCloseVisible() {
+  return !!G.ui || (G.state === 'title' && G.titleMode === 'gender');
+}
+
 function touchStartPt(id, pt) {
   if (touchMenuMode()) {
-    // close button (✕) in any menu
-    if (G.ui && Math.hypot(pt.x - 622, pt.y - 16) < 16) { escAction(); return; }
+    // close button (✕) — generous hit area
+    if (touchCloseVisible() && Math.hypot(pt.x - 612, pt.y - 24) < 30) { escAction(); return; }
     TOUCH.ids.set(id, { role: 'menu', x: pt.x, y: pt.y, drag: 0, moved: 0 });
     G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.moved = true;
     return;
   }
   for (const b of touchButtons()) {
-    if (Math.hypot(pt.x - b.x, pt.y - b.y) <= b.r + 6) {
+    if (Math.hypot(pt.x - b.x, pt.y - b.y) <= b.r + 10) {
       TOUCH.ids.set(id, { role: 'btn', k: b.k });
       TOUCH.held[b.k] = true;
       touchBtnDown(b.k);
       return;
     }
+  }
+  // weapon card: tap a slot box to equip it, tap the card body to reload
+  const wcx = VIEW_W - 148, wcy = VIEW_H - 46;
+  if (pt.x >= wcx - 4 && pt.y >= wcy - 6) {
+    for (let i = 0; i < 3; i++) {
+      const bx = wcx + 78 + i * 21;
+      if (pt.x >= bx - 3 && pt.x < bx + 23 && pt.y >= wcy + 14) {
+        if (G.loadout[i]) { G.slot = i; cycleSlot(0); }
+        return;
+      }
+    }
+    G.pressed.add('KeyR');
+    return;
   }
   if (pt.x < 250 && pt.y > 140) {
     TOUCH.ids.set(id, { role: 'mv' });
@@ -114,7 +134,11 @@ function touchEndPt(id, pt) {
   TOUCH.ids.delete(id);
   if (!t) return;
   if (t.role === 'menu') {
-    if (t.moved < 14) { G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.click = true; G.mouse.moved = true; }
+    if (t.moved < 14) {
+      const r = uiPanelRect();
+      if (r && (pt.x < r[0] || pt.x > r[0] + r[2] || pt.y < r[1] || pt.y > r[1] + r[3])) { escAction(); return; } // tap outside = dismiss
+      G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.click = true; G.mouse.moved = true;
+    }
   } else if (t.role === 'btn') {
     TOUCH.held[t.k] = false;
     touchBtnUp(t.k);
@@ -435,7 +459,21 @@ function fitCanvas() {
   }
 }
 
+function uiPanelRect() {
+  switch (G.ui) {
+    case 'pause': return [200, 60, 240, 226];
+    case 'bar': return [220, 110, 200, 130];
+    case 'talk': return [110, 218, 420, 116];
+    case 'guns': case 'cars': case 'ripper': case 'inv': return [56, 22, 528, 316];
+    default: return null;
+  }
+}
+
 function escAction() {
+  if (G.state === 'title') {
+    if (G.titleMode === 'gender') { G.titleMode = 'menu'; G.uiS.sel = 0; SFX.ui(); }
+    return;
+  }
   if (G.state !== 'play') return;
   if (G.ui) { G.ui = null; SFX.ui(); }
   else { G.ui = 'pause'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; }

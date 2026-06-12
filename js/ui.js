@@ -7,7 +7,11 @@ function navDown() { return press('KeyS') || press('ArrowDown'); }
 function navLeft() { return press('KeyA') || press('ArrowLeft'); }
 function navRight(){ return press('KeyD') || press('ArrowRight'); }
 function uiAct()   { return press('Enter') || press('KeyE') || (G.mouse.click ? (G.mouse.click = false, true) : false); }
-function uiHot(x, y, w, h) { const m = G.mouse; return m.sx >= x && m.sx < x + w && m.sy >= y && m.sy < y + h; }
+function uiHot(x, y, w, h) {
+  const m = G.mouse;
+  const sx = TOUCH.on ? 4 : 0, sy = TOUCH.on ? 3 : 0; // touch slop: fingers aren't cursors
+  return m.sx >= x - sx && m.sx < x + w + sx && m.sy >= y - sy && m.sy < y + h + sy;
+}
 function trunc(s, n) { return s.length > n ? s.slice(0, n - 1) + '…'.replace('…', '.') : s; }
 
 function uiPanel(c, x, y, w, h, title, col) {
@@ -158,9 +162,18 @@ function drawHUD(c) {
   } else drawText(c, 'UNARMED', wx + 4, wy + 17, '#5a6372', 1);
   for (let i = 0; i < 3; i++) {
     const id = G.loadout[i];
-    c.fillStyle = i === G.slot ? '#f9f002' : id ? RAR_COL[WPN[id].rar] : 'rgba(255,255,255,0.12)';
-    c.fillRect(wx + 110 + i * 10, wy + 26, 7, 7);
-    drawText(c, String(i + 1), wx + 112 + i * 10, wy + 27, '#06060a', 1);
+    if (TOUCH.on) { // thumb-sized, tappable slot boxes
+      const bx = wx + 78 + i * 21, by = wy + 18;
+      c.fillStyle = i === G.slot ? 'rgba(249,240,2,0.22)' : 'rgba(255,255,255,0.07)';
+      c.fillRect(bx, by, 20, 18);
+      c.strokeStyle = i === G.slot ? '#f9f002' : id ? RAR_COL[WPN[id].rar] : 'rgba(255,255,255,0.2)';
+      c.strokeRect(bx + 0.5, by + 0.5, 19, 17);
+      drawTextC(c, String(i + 1), bx + 10, by + 6, i === G.slot ? '#f9f002' : id ? '#cfd6e4' : '#5a6372', 1);
+    } else {
+      c.fillStyle = i === G.slot ? '#f9f002' : id ? RAR_COL[WPN[id].rar] : 'rgba(255,255,255,0.12)';
+      c.fillRect(wx + 110 + i * 10, wy + 26, 7, 7);
+      drawText(c, String(i + 1), wx + 112 + i * 10, wy + 27, '#06060a', 1);
+    }
   }
   // car status
   if (G.driving && G.car) {
@@ -295,11 +308,12 @@ function drawTouchControls(c) {
       c.globalAlpha = 1;
     }
   }
-  if (G.ui) { // ✕ close in any menu
-    c.globalAlpha = 0.5;
-    c.fillStyle = '#1a1c26'; c.beginPath(); c.arc(622, 16, 12, 0, Math.PI * 2); c.fill();
-    c.strokeStyle = '#ff5a5a'; c.beginPath(); c.arc(622, 16, 12, 0, Math.PI * 2); c.stroke();
-    drawTextC(c, '×', 622, 13, '#ff5a5a', 2);
+  if (touchCloseVisible()) { // ✕ close — thumb-sized
+    c.globalAlpha = 0.65;
+    c.fillStyle = '#1a1c26'; c.beginPath(); c.arc(612, 24, 18, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#ff5a5a'; c.lineWidth = 1.5; c.beginPath(); c.arc(612, 24, 18, 0, Math.PI * 2); c.stroke();
+    c.lineWidth = 1;
+    drawTextC(c, '×', 612, 19, '#ff5a5a', 3);
     c.globalAlpha = 1;
   }
   if (window.innerHeight > window.innerWidth) {
