@@ -126,6 +126,7 @@ const DISTRICTS = {
   westbrook: { name:'WESTBROOK',     danger:2, fac:'tygers',    col:'#ff2a6d' },
   santo:     { name:'SANTO DOMINGO', danger:2, fac:'sixth',     col:'#ff9f1c' },
   pacifica:  { name:'PACIFICA',      danger:3, fac:'voodoo',    col:'#00ff9f' },
+  dogtown:   { name:'DOGTOWN',       danger:4, fac:'barghest',  col:'#ff6a00' },
 };
 const FACTIONS = {
   scavs:     { name:'SCAV',        gun:0.55, pal:{ H:'#3a3a3a', S:'#cfa884', E:'#ff4444', J:'#2c2c2c', T:'#884444', P:'#22222a', B:'#101014' } },
@@ -133,6 +134,7 @@ const FACTIONS = {
   tygers:    { name:'TYGER CLAW',  gun:0.45, pal:{ H:'#101014', S:'#e0b48c', E:'#ff2a6d', J:'#2a1130', T:'#ff2a6d', P:'#1c1424', B:'#101014' } },
   sixth:     { name:'6TH STREET',  gun:0.65, pal:{ H:'#4a3826', S:'#d8a87c', E:'#f5b83d', J:'#1d2a4a', T:'#f5b83d', P:'#26262e', B:'#14141a' } },
   voodoo:    { name:'VOODOO BOY',  gun:0.6,  pal:{ H:'#0c0c10', S:'#7a5642', E:'#00ff9f', J:'#11281e', T:'#00ff9f', P:'#161e1a', B:'#0c0c10' } },
+  barghest:  { name:'BARGHEST',    gun:0.8,  pal:{ H:'#1a1a14', S:'#c8a078', E:'#ff6a00', J:'#262a1c', T:'#ff6a00', P:'#1e2018', B:'#101008' } },
 };
 const PSYCHO_NAMES = ['BLOODY NOX','SCALPEL','TURBO SAINT','NEON REAPER','DUKE OF NUKES','MISS SHRAPNEL','DR. CHROME','ZERO COUNT'];
 
@@ -147,6 +149,8 @@ const TIPS = [
   'CYBERPSYCHOS DROP ICONIC WEAPONS. COLLECT ALL 8',
   'PRESS [TAB] TO BROWSE YOUR COLLECTION',
   'YELLOW-TAGGED CRATES BREAK OPEN: EDDIES, DOCS, SOMETIMES IRON',
+  'DOGTOWN [SW] IS BARGHEST TURF: ★★★★ DANGER, AIRDROPS, BIG PAYOUTS',
+  'JIG-JIG STREET [NE] NEVER SLEEPS. CLOUDS CAN FIX YOURS',
   'ENEMIES HAVE EYES. STAY BEHIND THEM OR BREAK LINE OF SIGHT',
   'LIT DOORWAYS CAN BE ENTERED. HIDEOUTS HOLD LOOT — AND GONKS',
   'MELEE AN UNAWARE ENEMY FOR A 2.5X TAKEDOWN',
@@ -160,7 +164,31 @@ const FIXER_LINES = [
   'REGINA: PACIFICA IS DANGER ZONE. TRIPLE PAY THOUGH.',
   'REGINA: VIK GIVES DISCOUNTS TO NOBODY. CHROME UP ANYWAY.',
   'REGINA: A CALIBURN? IN THIS ECONOMY? DREAM BIG, V.',
+  'REGINA: BARGHEST GUARDS DOGTOWN LIKE A VAULT. BECAUSE IT IS ONE.',
+  'REGINA: AIRDROP CHATTER ON MILITECH FREQUENCIES. KEEP AN EYE SOUTH-WEST.',
 ];
+// joytoy / doll dialogue (kept tame — the spice is fade-to-black)
+const JOY_GREET = [
+  'HEY CHOOM. LOOKING FOR COMPANY?',
+  'WELL HELLO, MERC. LONG NIGHT?',
+  'NEW FACE ON JIG-JIG! BUY A GIRL A DRINK? OR SKIP TO THE FUN?',
+];
+const JOY_LINES = [
+  'CAREFUL — CHROME LIKE YOURS COULD BREAK A HEART.',
+  'YOU TALK CUTE FOR SOMEONE COVERED IN GUN OIL.',
+  'FLATTERY GETS YOU A DISCOUNT. KIDDING. IT DOESN\'T.',
+  'COME BACK ALIVE, OKAY? I MEAN IT.',
+];
+const DOLL_GREET = [
+  'WELCOME TO CLOUDS. I\'M EVE. I ALREADY KNOW WHAT YOU NEED.',
+  'BREATHE, V. IN HERE, THE CITY CAN\'T REACH YOU.',
+];
+const DOLL_LINES = [
+  'YOUR PULSE SAYS YOU HAVEN\'T SLEPT IN DAYS. LET IT GO.',
+  'EVERY MERC CARRIES GHOSTS. PUT THEM DOWN FOR AN HOUR.',
+  'THE NET REMEMBERS EVERYTHING. PEOPLE? WE CHOOSE WHAT TO KEEP.',
+];
+
 const SKIPPY_LINES = [
   'SKIPPY: WHEEE! THAT WAS AWESOME!',
   'SKIPPY: YOU CAN\'T SPELL MASSACRE WITHOUT ME!',

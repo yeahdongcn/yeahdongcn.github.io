@@ -36,8 +36,12 @@ and street cred → spend them at the three shops near spawn → take on
 - **Weapon database: 38** — 25 shop guns + 4 cyber-arm weapons + **8 iconics dropped only by cyberpsychos** (every 3rd bounty summons one) + 1 hidden talking pistol lost in a gutter somewhere…
 - **Garage: 12 vehicles** · **Chrome: 17 implants** · full stats page with net worth.
 
-Five districts (Watson, Westbrook, City Center, Santo Domingo, Pacifica) with their own
-gangs and danger ratings — Pacifica pays best and hurts most.
+Six districts (Watson, Westbrook, City Center, Santo Domingo, Pacifica — and **Dogtown**,
+the ★★★★ Barghest-held corner in the south-west) with their own gangs and danger ratings.
+**Airdrops** parachute into Dogtown every few minutes: race the Barghest squad to the
+container for eddies, MaxDocs, and rarity-boosted gear. And when the city wears you down,
+**Jig-Jig Street** (NE) has joytoys to chat up — or visit EVE at the CLOUDS dollhouse —
+for a fade-to-black good time that fully rests V and grants a crit/XP euphoria buff.
 
 ## Controls
 

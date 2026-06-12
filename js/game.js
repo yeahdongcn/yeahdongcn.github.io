@@ -62,9 +62,10 @@ function newGame() {
     cyber: {}, os: null,
     enemies: [], bullets: [], parts: [], texts: [], pickups: [], crates: [], civs: [], slashes: [], glows: [],
     bounty: null, bountyT: 10, bountyCount: 0, psychoPending: 0,
+    airdrop: null, airdropT: 90, talk: null, fade: null,
     skippyFound: false, skippyHintT: 0,
     msgs: [], bannerO: null, tipsQ: [], fixerT: 75,
-    stats: { kills: 0, psychos: 0, bounties: 0, crates: 0, dist: 0, playT: 0 },
+    stats: { kills: 0, psychos: 0, bounties: 0, crates: 0, dist: 0, playT: 0, airdrops: 0 },
     saveT: 12, deadT: 0, deathFee: 0, hurtT: 0, flashT: 0, thunderT: rnd(18, 40),
     rain: [], prompt: null, lockTarget: null, lastDistrict: null,
   };
@@ -77,7 +78,7 @@ function makePlayer(x, y) {
     aim: 0, recoil: 0, fireCd: 0, reloadT: 0, useT: 0, iframes: 0, regenT: 0,
     dashT: 0, dashCd: 0, kzT: 0, trail: [],
     speedMult: 1, rofMult: 1, xpMult: 1, critCh: 0.05, smartTurn: 0, dashCdMult: 1,
-    osT: 0, osCd: 0, camoT: 0, camoCd: 0, bioCd: 0, shCd: 0, buffT: 0,
+    osT: 0, osCd: 0, camoT: 0, camoCd: 0, bioCd: 0, shCd: 0, buffT: 0, joyT: 0,
   };
 }
 
@@ -206,6 +207,18 @@ function boot() {
     G.p.x = r.doorTx[0] * TILE + 8; G.p.y = (r.doorTy + 1) * TILE + 10;
     for (let i = 0; i < 90; i++) step(1 / 60);
     G.bannerO = null;
+  } else if (/airdrop/.test(q)) { // screenshot helper: chase an airdrop in Dogtown
+    startGame(false);
+    G.airdropT = 0; spawnAirdrop();
+    if (G.airdrop) { G.p.x = G.airdrop.x + 40; G.p.y = G.airdrop.y + 50; }
+    for (let i = 0; i < 300; i++) step(1 / 60);
+    G.bannerO = null;
+  } else if (/jigjig/.test(q)) { // screenshot helper: Jig-Jig Street
+    startGame(false);
+    const jj = WORLD.npcs.find(n => n.kind === 'joy');
+    if (jj) { G.p.x = jj.x + 14; G.p.y = jj.y + 12; }
+    for (let i = 0; i < 90; i++) step(1 / 60);
+    G.bannerO = null;
   }
   if (/demo/.test(q)) {
     G.eddies = 60000;
@@ -296,6 +309,7 @@ function step(dt) {
     updateCrates(dt);
     updateCivs(dtW);
     updateSpawns(dt);
+    updateAirdrop(dt, dtW);
     updateTips(dt);
     // roof reveal + gang hideout ambushes
     const ptx = Math.floor(p.x / TILE), pty = Math.floor(p.y / TILE);
@@ -321,6 +335,7 @@ function step(dt) {
   }
   G.msgs = G.msgs.filter(m => (m.t -= dt) > 0);
   if (G.bannerO && (G.bannerO.t -= dt) <= 0) G.bannerO = null;
+  if (G.fade && (G.fade.t += dt) >= G.fade.dur) G.fade = null;
   G.hurtT = Math.max(0, G.hurtT - dt * 2);
   G.flashT = Math.max(0, G.flashT - dt * 3);
   G.thunderT -= dt;
@@ -360,6 +375,7 @@ function updatePlayer(dt, dtP) {
   p.camoT = Math.max(0, p.camoT - dt); p.camoCd = Math.max(0, p.camoCd - dt);
   p.bioCd = Math.max(0, p.bioCd - dt); p.shCd = Math.max(0, p.shCd - dt);
   p.buffT = Math.max(0, p.buffT - dt); p.kzT = Math.max(0, p.kzT - dt);
+  p.joyT = Math.max(0, p.joyT - dt);
   p.dashCd = Math.max(0, p.dashCd - dt);
   G.summonCd = Math.max(0, G.summonCd - dt);
 
@@ -495,6 +511,18 @@ function interactScan() {
       return;
     }
   }
+  if (G.airdrop && G.airdrop.state === 'landed' && distPx(p.x, p.y, G.airdrop.x, G.airdrop.y) < 24) {
+    G.prompt = '[E] CRACK AIRDROP';
+    if (press('KeyE')) openAirdrop();
+    return;
+  }
+  for (const n of WORLD.npcs) {
+    if ((n.kind === 'joy' || n.kind === 'doll') && distPx(p.x, p.y, n.x, n.y) < 22) {
+      G.prompt = '[E] TALK — ' + n.name;
+      if (press('KeyE')) openTalk(n);
+      return;
+    }
+  }
   for (const v of WORLD.vends) {
     if (distPx(p.x, p.y, v.x, v.y) < 22) {
       G.prompt = '[E] MAXDOC — €$50' + (G.maxdocs >= 5 ? ' (FULL)' : '');
@@ -548,7 +576,7 @@ function tryFire(w) {
   const dmgMult = (G.os === 'berserk' && p.osT > 0) ? CYB.berserk.tiers[G.cyber.berserk - 1].dmg : 1;
   for (let i = 0; i < n; i++) {
     const a = p.aim + (rnd(-w.spread, w.spread) * Math.PI / 180);
-    const crit = Math.random() < p.critCh + (w.crit || 0);
+    const crit = Math.random() < p.critCh + (w.crit || 0) + (p.joyT > 0 ? 0.05 : 0);
     G.bullets.push({
       x: p.x + Math.cos(p.aim) * 8, y: p.y - 2 + Math.sin(p.aim) * 8,
       vx: Math.cos(a) * w.spd, vy: Math.sin(a) * w.spd,
@@ -577,7 +605,7 @@ function swingMelee(w) {
     if (d > w.range + (e.psycho ? 14 : 6)) continue;
     let da = Math.abs(((Math.atan2(e.y - p.y, e.x - p.x) - p.aim) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
     if (da > (w.arc / 2) * Math.PI / 180) continue;
-    const crit = Math.random() < p.critCh + (w.crit || 0);
+    const crit = Math.random() < p.critCh + (w.crit || 0) + (p.joyT > 0 ? 0.05 : 0);
     const sneakM = e.alerted ? 1 : 2.5;
     if (sneakM > 1) addTxt(e.x, e.y - 20, 'TAKEDOWN', '#f9f002');
     damageEnemy(e, w.dmg * dmgMult * sneakM * (crit ? 1.8 : 1), crit, p.aim, w.kb || 140, w.burn);
@@ -761,7 +789,7 @@ function respawn() {
 }
 
 function xpGain(n) {
-  n = Math.round(n * G.p.xpMult);
+  n = Math.round(n * G.p.xpMult * (G.p.joyT > 0 ? 1.15 : 1));
   G.xp += n;
   addTxt(G.p.x, G.p.y - 18, '+' + n + ' XP', '#05d9e8');
   while (G.xp >= xpFor(G.lvl)) {
@@ -948,6 +976,97 @@ function findSpot(cx, cy, rMin, rMax) {
     if (!WORLD.solidPx(x, y) && WORLD.tileAt(x, y) < 5) return { x, y }; // outdoors only
   }
   return null;
+}
+
+// =================== airdrops (Dogtown) ===================
+function spawnAirdrop() {
+  for (let k = 0; k < 80; k++) {
+    const tx = irnd(8, 40), ty = irnd(80, 114);
+    if (WORLD.solidAt(tx, ty) || WORLD.t[ty * WORLD.W + tx] >= 5) continue;
+    const x = tx * TILE + 8, y = ty * TILE + 8;
+    if (WORLD.districtAt(x, y) !== 'dogtown') continue;
+    G.airdrop = { x, y, alt: 360, state: 'falling', t: 0 };
+    banner('AIRDROP INBOUND', 'MILITECH SUPPLY DROP OVER DOGTOWN — RACE THE BARGHEST', '#ff6a00');
+    msg('REGINA: AIRDROP ON MILITECH FREQUENCIES. SOUTH-WEST, MOVE', '#ff6a00');
+    SFX.msg();
+    return;
+  }
+  G.airdropT = 30; // no spot found, retry soon
+}
+
+function updateAirdrop(dt, dtW) {
+  if (!G.airdrop) {
+    G.airdropT -= dt;
+    if (G.airdropT <= 0) spawnAirdrop();
+    return;
+  }
+  const a = G.airdrop;
+  if (a.state === 'falling') {
+    a.alt -= 65 * dtW;
+    if (a.alt <= 0) {
+      a.alt = 0; a.state = 'landed'; a.t = 90;
+      SFX.explode(); G.shake = Math.max(G.shake, 3);
+      addP(14, a.x, a.y, { col: '#8a7a5a', sp: 80, life: 0.5 });
+      spawnPack(a.x, a.y, irnd(3, 4), { alerted: true, alertT: 12, lkx: a.x, lky: a.y });
+      msg('SUPPLY DROP LANDED — BARGHEST CONVERGING', '#ff6a00');
+    }
+  } else {
+    a.t -= dt;
+    if (a.t <= 0) {
+      G.airdrop = null; G.airdropT = rnd(150, 240);
+      msg('BARGHEST SECURED THE AIRDROP. NEXT TIME, MERC', '#8a93a6');
+    }
+  }
+}
+
+function openAirdrop() {
+  const a = G.airdrop;
+  G.airdrop = null; G.airdropT = rnd(150, 240);
+  G.stats.airdrops = (G.stats.airdrops || 0) + 1;
+  for (let k = 0; k < 5; k++)
+    G.pickups.push({ kind: 'ed', amt: Math.round((60 + 10 * G.lvl) * rnd(0.8, 1.3)), x: a.x + rnd(-8, 8), y: a.y + rnd(-8, 8), vx: rnd(-30, 30), vy: rnd(-30, 30), t: 60 });
+  G.pickups.push({ kind: 'doc', x: a.x, y: a.y - 6, vx: 0, vy: 0, t: 60 });
+  // rarity-boosted gear
+  const pool = WEAPONS.filter(w => !w.iconic && !w.granted && !w.hidden && w.price > 0 && w.lvl <= G.lvl + 5);
+  const un = pool.filter(w => !G.weapons[w.id]);
+  const hi = (un.length ? un : pool).filter(w => w.rar >= 2);
+  const w = pick(hi.length ? hi : (un.length ? un : pool));
+  if (w) G.pickups.push({ kind: 'wpn', id: w.id, x: a.x, y: a.y + 6, vx: 0, vy: 0, t: 90 });
+  addP(16, a.x, a.y, { col: '#ff9f1c', sp: 90, life: 0.5 });
+  banner('AIRDROP SECURED', 'MILITECH SUPPLIES: GEAR + EDDIES', '#ff6a00');
+  SFX.buy(); SFX.levelup();
+  xpGain(25 + 8 * G.lvl);
+  saveGame();
+}
+
+// =================== joytoys & dolls ===================
+function openTalk(n) {
+  G.ui = 'talk';
+  G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+  G.talk = { npc: n, text: pick(n.kind === 'doll' ? DOLL_GREET : JOY_GREET) };
+  SFX.ui();
+}
+function talkOptions(n) {
+  return n.kind === 'doll' ? ['TALK', 'BRAINDANCE BLISS — €$300', 'LEAVE'] : ['FLIRT', 'GOOD TIME — €$100', 'LEAVE'];
+}
+function talkSelect(i) {
+  const n = G.talk.npc;
+  if (i === 0) { G.talk.text = pick(n.kind === 'doll' ? DOLL_LINES : JOY_LINES); SFX.ui(); return; }
+  if (i === 1) {
+    const price = n.kind === 'doll' ? 300 : 100;
+    if (G.eddies < price) { msg('NOT ENOUGH EDDIES', '#ff5a5a'); SFX.deny(); return; }
+    G.eddies -= price;
+    G.ui = null; G.talk = null;
+    G.fade = { t: 0, dur: 2.8, label: 'SOME TIME LATER...' };
+    const p = G.p;
+    p.hp = p.maxhp; p.iframes = 4;
+    p.joyT = n.kind === 'doll' ? 120 : 60;
+    msg((n.kind === 'doll' ? 'CLOUD NINE' : 'EUPHORIA') + ': +CRIT +XP, FULLY RESTED', '#ff2a6d');
+    SFX.heal();
+    saveGame();
+    return;
+  }
+  G.ui = null; G.talk = null; SFX.ui();
 }
 
 function triggerDen(dn) {
@@ -1520,11 +1639,33 @@ function drawWorldEntities(c, indoor) {
     if (!visible(cv2.x, cv2.y) || indoorAt(cv2.x, cv2.y) !== indoor) continue;
     drawPed(c, SPR.civ(cv2.i), cv2.face, cv2.flip, Math.floor(cv2.anim), cv2.x, cv2.y);
   }
-  // shop vendor NPCs
+  // shop vendors, joytoys, dolls
   for (const n of WORLD.npcs) {
     if (!visible(n.x, n.y) || indoorAt(n.x, n.y) !== indoor) continue;
     drawPed(c, SPR.civ(n.i), 'down', false, 0, n.x, n.y);
-    drawTextC(c, n.name, n.x, n.y - 20, '#5a6372', 1);
+    drawTextC(c, n.name, n.x, n.y - 20, n.kind === 'joy' || n.kind === 'doll' ? '#ff2a6d' : '#5a6372', 1);
+  }
+  // airdrop: chute on the way down, beacon container on the ground
+  if (!indoor && G.airdrop && visible(G.airdrop.x, G.airdrop.y, 80)) {
+    const a = G.airdrop, prog = 1 - Math.min(1, a.alt / 360), cy2 = a.y - a.alt;
+    c.fillStyle = 'rgba(0,0,0,' + (0.12 + 0.26 * prog).toFixed(2) + ')';
+    c.beginPath(); c.ellipse(a.x, a.y, 4 + 7 * prog, 2 + 3.5 * prog, 0, 0, Math.PI * 2); c.fill();
+    if (a.state === 'falling') {
+      c.fillStyle = '#ff6a00';
+      c.beginPath(); c.arc(a.x, cy2 - 14, 10, Math.PI, 0); c.fill();
+      c.fillStyle = '#c24e00'; c.fillRect(a.x - 10, cy2 - 14, 20, 2);
+      c.strokeStyle = 'rgba(200,200,210,0.7)';
+      c.beginPath();
+      c.moveTo(a.x - 9, cy2 - 13); c.lineTo(a.x - 5, cy2 - 3);
+      c.moveTo(a.x + 9, cy2 - 13); c.lineTo(a.x + 5, cy2 - 3);
+      c.stroke();
+      c.drawImage(SPR.crate, a.x - 6, cy2 - 4);
+    } else {
+      c.fillStyle = '#5a2c0c'; c.fillRect(a.x - 7, a.y - 9, 14, 11);
+      c.fillStyle = '#ff6a00'; c.fillRect(a.x - 7, a.y - 9, 14, 2); c.fillRect(a.x - 1, a.y - 9, 2, 11);
+      c.fillStyle = '#2c1606'; c.fillRect(a.x - 7, a.y + 1, 14, 1);
+      if ((G.frame / 12 | 0) % 2) { c.fillStyle = '#ffd27a'; c.fillRect(a.x - 6, a.y - 8, 1, 1); }
+    }
   }
   // player
   if (!G.driving && indoorAt(p.x, p.y) === indoor) {
@@ -1643,6 +1784,10 @@ function render() {
     c.globalAlpha = 0.12 + 0.07 * Math.sin(G.rt * 3 + cr.x);
     c.drawImage(SPR.glowS('#f9f002', 9), cr.x - 9, cr.y - 13);
   }
+  if (G.airdrop && visible(G.airdrop.x, G.airdrop.y, 80)) {
+    c.globalAlpha = 0.4 + 0.1 * Math.sin(G.rt * 5);
+    c.drawImage(SPR.glowS('#ff6a00', 14), G.airdrop.x - 14, G.airdrop.y - G.airdrop.alt - 18);
+  }
   for (const b of G.bullets) {
     c.globalAlpha = 0.5;
     c.drawImage(SPR.glowS(b.col, 5), b.x - 5, b.y - 5);
@@ -1699,7 +1844,16 @@ function render() {
   else if (G.ui === 'cars') drawShopCars(c);
   else if (G.ui === 'ripper') drawRipper(c);
   else if (G.ui === 'bar') drawBar(c);
+  else if (G.ui === 'talk') { drawHUD(c); drawTalk(c); }
   else { drawHUD(c); drawCrosshair(c); }
+
+  // fade-to-black interludes
+  if (G.fade) {
+    const a = Math.sin(Math.PI * Math.min(1, G.fade.t / G.fade.dur));
+    c.fillStyle = 'rgba(4,2,8,' + (0.97 * a).toFixed(2) + ')';
+    c.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (a > 0.6) drawTextC(c, G.fade.label, VIEW_W / 2, 172, '#ff2a6d', 1);
+  }
 
   c.drawImage(SPR.scan, 0, 0);
 }

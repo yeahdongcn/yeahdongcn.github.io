@@ -135,6 +135,7 @@ function drawHUD(c) {
   }
   drawText(c, 'C×' + G.maxdocs, cx, cy + 1, G.maxdocs > 0 ? '#2ecc71' : '#5a6372', 1);
   if (p.useT > 0) { uiBar(c, cx, cy + 8, 30, 2, 1 - p.useT, '#2ecc71'); }
+  if (p.joyT > 0) drawText(c, '♥' + Math.ceil(p.joyT), cx + 26, cy + 1, '#ff2a6d', 1);
 
   drawMinimap(c);
 
@@ -174,15 +175,20 @@ function drawHUD(c) {
     drawTextC(c, 'CYBERPSYCHO — ' + ps.name, VIEW_W / 2, 8, '#ff2a3c', 1);
     uiBar(c, VIEW_W / 2 - 90, 16, 180, 5, ps.hp / ps.maxhp, '#bd00ff', 'rgba(80,0,40,0.5)');
   }
-  // objective line under minimap
+  // objective lines under minimap
   if (G.bounty) {
     const d = Math.hypot(G.bounty.x - p.x, G.bounty.y - p.y) / 10 | 0;
     drawTextR(c, (G.bounty.psycho ? 'PSYCHO' : 'BOUNTY') + ': ' + G.bounty.left + ' LEFT · ' + d + 'M', VIEW_W - 8, 78, G.bounty.psycho ? '#bd00ff' : '#ff5a5a', 1);
+  }
+  if (G.airdrop) {
+    const d = Math.hypot(G.airdrop.x - p.x, G.airdrop.y - p.y) / 10 | 0;
+    drawTextR(c, 'AIRDROP: ' + (G.airdrop.state === 'falling' ? 'INBOUND' : Math.ceil(G.airdrop.t) + 'S') + ' · ' + d + 'M', VIEW_W - 8, G.bounty ? 88 : 78, '#ff6a00', 1);
   }
   drawMsgs(c);
   drawBanner(c);
   // edge markers
   if (G.bounty) edgeArrow(c, G.bounty.x, G.bounty.y, G.bounty.psycho ? '#bd00ff' : '#ff2a3c');
+  if (G.airdrop) edgeArrow(c, G.airdrop.x, G.airdrop.y, '#ff6a00');
   if (!G.skippyFound && distPx(p.x, p.y, WORLD.skippySpot.x, WORLD.skippySpot.y) < 700) edgeArrow(c, WORLD.skippySpot.x, WORLD.skippySpot.y, '#f9f002');
 }
 
@@ -206,6 +212,7 @@ function drawMinimap(c) {
   dot(WORLD.shops.bar.x, WORLD.shops.bar.y, '#ff2a6d', 'B');
   for (const e of G.enemies) if (!e.dead && (e.bounty || e.psycho || G.cyber.kiroshi)) dot(e.x, e.y, e.psycho ? '#bd00ff' : '#ff2a3c');
   if (G.bounty && (G.frame / 20 | 0) % 2) dot(G.bounty.x, G.bounty.y, G.bounty.psycho ? '#bd00ff' : '#ff2a3c', '×');
+  if (G.airdrop && (G.frame / 14 | 0) % 2) dot(G.airdrop.x, G.airdrop.y, '#ff6a00', '×');
   if (!G.skippyFound && distPx(p.x, p.y, WORLD.skippySpot.x, WORLD.skippySpot.y) < 500) dot(WORLD.skippySpot.x, WORLD.skippySpot.y, '#f9f002', '?');
   // player
   dot(p.x, p.y, '#e8f6ff');
@@ -429,6 +436,24 @@ function drawRipper(c) {
   drawCursorSpr(c);
 }
 
+// =================== JOYTOY / DOLL TALK ===================
+function drawTalk(c) {
+  c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
+  const n = G.talk.npc;
+  uiPanel(c, 110, 218, 420, 116, n.name + (n.kind === 'doll' ? ' — CLOUDS' : ' — JIG-JIG STREET'), '#ff2a6d');
+  wrapText(G.talk.text, 66).slice(0, 2).forEach((ln, i) => drawText(c, ln, 122, 242 + i * 10, '#e8f6ff', 1));
+  const opts = talkOptions(n);
+  const sel = navList(opts.length);
+  for (let i = 0; i < opts.length; i++) {
+    const y = 272 + i * 16, hot = uiHot(118, y - 4, 404, 14);
+    if (hot && G.mouse.moved) G.uiS.sel = i;
+    drawText(c, (sel === i ? '> ' : '  ') + opts[i], 124, y, sel === i ? '#f9f002' : '#8a93a6', 1);
+    if (hot && G.mouse.click) { G.mouse.click = false; talkSelect(i); return; }
+  }
+  if (press('Enter') || press('KeyE')) talkSelect(sel);
+  drawCursorSpr(c);
+}
+
 function drawBar(c) {
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
   uiPanel(c, 220, 110, 200, 130, 'AFTERLIFE', '#ff2a6d');
@@ -571,6 +596,7 @@ function invStats(c) {
     ['ENEMIES FLATLINED', st.kills],
     ['CYBERPSYCHOS DOWNED', st.psychos + '/' + ICONICS.length],
     ['BOUNTIES CLEARED', st.bounties],
+    ['AIRDROPS SECURED', st.airdrops || 0],
     ['CRATES CRACKED', st.crates],
     ['DISTANCE ROAMED', (st.dist / 1000).toFixed(1) + ' KM'],
     ['TIME IN NIGHT CITY', mins + ' MIN'],

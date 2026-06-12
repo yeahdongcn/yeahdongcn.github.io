@@ -66,6 +66,20 @@ function genWorld() {
       continue;
     }
 
+    if (bi === 4 && bj === 1) { // Jig-Jig Street: neon pleasure plaza + CLOUDS dollhouse
+      setRect(ix, iy, 12, 12, WT.PLAZA);
+      setRect(ix + 2, iy, 8, 6, WT.BLDG);
+      bldgs.push({ x: ix + 2, y: iy, w: 8, h: 6, roof: '#2a2030', neon: '#bd00ff', sign: { text: 'CLOUDS', col: '#bd00ff' }, ent: true, theme: 'clouds' });
+      holos.push({ x: (ix + 6) * TILE, y: (iy + 9) * TILE, text: 'JIG-JIG STREET', col: '#ff2a6d' });
+      npcs.push({ x: (ix + 3) * TILE, y: (iy + 8) * TILE + 8, i: 4, name: 'ANGEL', kind: 'joy' });
+      npcs.push({ x: (ix + 9) * TILE, y: (iy + 9) * TILE + 8, i: 5, name: 'SKYE', kind: 'joy' });
+      obst.push({ x: (ix + 3) * TILE - 4, y: (iy + 8) * TILE + 2, w: 8, h: 9 });
+      obst.push({ x: (ix + 9) * TILE - 4, y: (iy + 9) * TILE + 2, w: 8, h: 9 });
+      vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 10) * TILE });
+      crateSpots.push({ x: (ix + 10) * TILE, y: (iy + 10) * TILE });
+      continue;
+    }
+
     const roll = rng();
     if (roll < 0.14) { // plaza
       setRect(ix, iy, 12, 12, WT.PLAZA);
@@ -194,7 +208,7 @@ function genWorld() {
 
   // ---- minimap ----
   const mini = mkCanvas(W, H), mc = mini.getContext('2d');
-  const dcol = { center: '#34301c', watson: '#173039', westbrook: '#391726', santo: '#39301c', pacifica: '#173927' };
+  const dcol = { center: '#34301c', watson: '#173039', westbrook: '#391726', santo: '#39301c', pacifica: '#173927', dogtown: '#3a2410' };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const v = t[idx(x, y)];
     mc.fillStyle = v === WT.ROAD ? '#2e2e3e' : v === WT.WALK ? '#191922' : v === WT.PLAZA ? '#1f1f2c' : v === WT.PARK ? '#152018'
@@ -338,6 +352,21 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
       solid(fx + fw - 17, fy + fh - 17, 10, 10);                       // tire stack
       r.lights.push({ x: cx, y: fy + 14, col: '#00ff9f' });
       break;
+    case 'clouds': {
+      counter('#3a2438'); // reception
+      c.fillStyle = '#5a2444'; c.fillRect(fx + 6, fy + 30, 22, 8);          // couches
+      c.fillStyle = '#7a3458'; c.fillRect(fx + 8, fy + 31, 4, 3); c.fillRect(fx + 20, fy + 31, 4, 3);
+      solid(fx + 6, fy + 30, 22, 8);
+      c.fillStyle = '#5a2444'; c.fillRect(fx + fw - 28, fy + 30, 22, 8);
+      c.fillStyle = '#7a3458'; c.fillRect(fx + fw - 26, fy + 31, 4, 3); c.fillRect(fx + fw - 14, fy + 31, 4, 3);
+      solid(fx + fw - 28, fy + 30, 22, 8);
+      for (let bx2 = fx + 8; bx2 < fx + fw - 8; bx2 += 7) { c.fillStyle = bx2 % 14 < 7 ? '#ff2a6d' : '#bd00ff'; c.fillRect(bx2, fy + 6, 2, 3); }
+      r.lights.push({ x: cx - 18, y: fy + 33, col: '#ff2a6d' });
+      r.lights.push({ x: cx + 18, y: fy + 33, col: '#bd00ff' });
+      npcs.push({ x: cx, y: fy + 27, i: 3, name: 'EVE', kind: 'doll' });
+      solid(cx - 4, fy + 21, 8, 9);
+      break;
+    }
     case 'den': {
       c.fillStyle = '#10141c'; c.fillRect(fx + 4, fy + 8, 16, 6);      // weapon rack
       c.fillStyle = '#8a93a6'; c.fillRect(fx + 6, fy + 10, 12, 1);
@@ -367,7 +396,7 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
 }
 
 function shopsHasSign(shops, text) {
-  return ['2ND AMENDMENT', "VIK'S CLINIC", 'NC AUTOFIXER', 'AFTERLIFE'].includes(text);
+  return ['2ND AMENDMENT', "VIK'S CLINIC", 'NC AUTOFIXER', 'AFTERLIFE', 'CLOUDS'].includes(text);
 }
 
 function _markAlley(alleys, x0, y0, w, h) {
@@ -376,6 +405,7 @@ function _markAlley(alleys, x0, y0, w, h) {
 
 function _districtOfTile(tx, ty) {
   if (tx >= 42 && tx <= 81 && ty >= 42 && ty <= 81) return 'center';
+  if (tx < 42 && ty >= 78) return 'dogtown'; // walled-off SW corner
   if (tx < 64) return ty < 64 ? 'watson' : 'pacifica';
   return ty < 64 ? 'westbrook' : 'santo';
 }

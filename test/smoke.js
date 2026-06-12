@@ -282,6 +282,44 @@ G.keys.delete('KeyW');
 assert(G.p.y >= barObst.y + barObst.h - 0.01, 'cannot walk through the bar counter');
 assert(!WORLD.blockedPx(G.p.x, G.p.y), 'player not stuck inside furniture');
 
+// ---- Dogtown + airdrops ----
+G.p.iframes = 99999;
+assert(DISTRICTS.dogtown && FACTIONS.barghest, 'dogtown + barghest defined');
+assert(WORLD.districtAt(20 * TILE, 100 * TILE) === 'dogtown', 'dogtown occupies the SW corner');
+G.enemies = []; G.bounty = null; G.airdrop = null; G.airdropT = 0;
+spawnAirdrop();
+assert(G.airdrop && G.airdrop.state === 'falling', 'airdrop spawned');
+assert(WORLD.districtAt(G.airdrop.x, G.airdrop.y) === 'dogtown', 'airdrop targets dogtown');
+steps(60 * 7);
+assert(G.airdrop && G.airdrop.state === 'landed', 'airdrop landed');
+assert(G.enemies.some(e => e.fac === 'barghest'), 'barghest converge on the drop');
+G.p.x = G.airdrop.x; G.p.y = G.airdrop.y + 10;
+const edBeforeDrop = G.eddies;
+steps(2); G.pressed.add('KeyE'); steps(3);
+assert(!G.airdrop, 'airdrop cracked open');
+steps(80); // hoover the loot
+assert(G.stats.airdrops === 1, 'airdrop stat counted');
+assert(G.eddies > edBeforeDrop, 'airdrop eddies collected');
+
+// ---- joytoys & dolls: talk, flirt, pay, buff ----
+const joy = WORLD.npcs.find(n => n.kind === 'joy');
+const doll = WORLD.npcs.find(n => n.kind === 'doll');
+assert(joy && doll, 'joytoy + doll exist (jig-jig street / clouds)');
+G.eddies = 1000; G.p.hp = 10;
+openTalk(joy);
+assert(G.ui === 'talk' && G.talk.npc === joy, 'talk opened');
+talkSelect(0); // flirt
+assert(G.ui === 'talk', 'flirt keeps the conversation going');
+talkSelect(1); // good time
+assert(G.ui === null && G.eddies === 900, 'service paid');
+assert(G.p.hp === G.p.maxhp && G.p.joyT > 0, 'fully rested + euphoria buff');
+assert(G.fade && G.fade.label, 'fade-to-black interlude');
+steps(240);
+assert(!G.fade, 'fade ends');
+openTalk(doll);
+talkSelect(2); // leave
+assert(G.ui === null, 'leave closes talk');
+
 // ---- legacy save (pre-gender/dens fields) still continues ----
 localStorage.setItem('ncpx2077_v1', JSON.stringify({
   v: 1, eddies: 777, lvl: 3, xp: 10, maxdocs: 1,
