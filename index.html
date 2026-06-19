@@ -1,25 +1,272 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>NIGHT CITY — Pixel Edition</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>NIGHT CITY — Choose Your Lens</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="NIGHT CITY — a browser Cyberpunk action game in two styles: PIXEL (top-down 8-bit) and 2.5D (Diablo-style isometric). One save, shared across both.">
+<meta name="theme-color" content="#07070d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2307070d'/%3E%3Crect x='2' y='2' width='5' height='5' fill='%2300ff9f'/%3E%3Crect x='9' y='9' width='5' height='5' fill='%23f5b942'/%3E%3Crect x='9' y='2' width='5' height='5' fill='%23ff2a6d'/%3E%3Crect x='2' y='9' width='5' height='5' fill='%2305d9e8'/%3E%3C/svg%3E">
 <style>
-  html,body{margin:0;padding:0;height:100%;background:#06060a;overflow:hidden;overscroll-behavior:none}
-  body{display:flex;align-items:center;justify-content:center;position:fixed;inset:0}
-  canvas{image-rendering:pixelated;image-rendering:crisp-edges;cursor:none;background:#06060a;touch-action:none}
+  :root{
+    --bg:#07070d; --panel:#0d0d17; --ink:#e8ecf5; --dim:#8b93a8;
+    --cyan:#05d9e8; --mag:#ff2a6d; --yel:#f9f002;
+    --green:#00ff9f; --gold:#f5b942; --goldhi:#ffd987;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%}
+  body{
+    background:var(--bg); color:var(--ink); overflow-x:hidden;
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    display:flex; flex-direction:column; align-items:center;
+    min-height:100vh; padding:clamp(18px,4vw,46px) 18px 30px;
+    position:relative; isolation:isolate;
+  }
+
+  /* ---------- animated background ---------- */
+  .bg{position:fixed; inset:0; z-index:-2; overflow:hidden; pointer-events:none}
+  .bg::before{ /* perspective neon grid */
+    content:""; position:absolute; left:-50%; right:-50%; bottom:-10%; height:75%;
+    background:
+      linear-gradient(transparent 0 49%, rgba(5,217,232,.16) 49% 51%, transparent 51%) 0 0/100% 46px,
+      linear-gradient(90deg, transparent 0 49%, rgba(5,217,232,.10) 49% 51%, transparent 51%) 0 0/46px 100%;
+    transform:perspective(420px) rotateX(68deg); transform-origin:bottom center;
+    animation:grid 7s linear infinite; mask-image:linear-gradient(transparent, #000 60%);
+  }
+  @keyframes grid{to{background-position:0 46px, 0 0}}
+  .bg::after{ /* horizon glow + vignette */
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(120% 60% at 50% 108%, rgba(255,42,109,.20), transparent 60%),
+      radial-gradient(80% 50% at 50% -10%, rgba(5,217,232,.12), transparent 60%),
+      radial-gradient(140% 120% at 50% 40%, transparent 55%, rgba(0,0,0,.72));
+  }
+  .scan{position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.5;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px)}
+  .ember{position:fixed; bottom:-12px; width:3px; height:3px; z-index:-1; pointer-events:none;
+    background:var(--c,#ff9f1c); box-shadow:0 0 6px var(--c,#ff9f1c); opacity:0; animation:rise var(--d,9s) linear infinite var(--dl,0s)}
+  @keyframes rise{
+    0%{transform:translateY(0) translateX(0); opacity:0}
+    10%{opacity:.9} 90%{opacity:.5}
+    100%{transform:translateY(-104vh) translateX(var(--x,20px)); opacity:0}
+  }
+
+  /* ---------- header ---------- */
+  header{text-align:center; margin:6px 0 clamp(20px,3.4vw,40px); z-index:1}
+  .kicker{font-size:12px; letter-spacing:.42em; color:var(--cyan); opacity:.85;
+    display:inline-block; padding:5px 14px; border:1px solid rgba(5,217,232,.32);
+    border-radius:2px; background:rgba(5,217,232,.05)}
+  h1{
+    margin:.32em 0 .12em; font-size:clamp(42px,10vw,104px); line-height:.92;
+    font-weight:800; letter-spacing:.04em; color:#fff;
+    background:linear-gradient(180deg,#ffffff,#c4ccdd 60%,#9aa6bd);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    text-shadow:0 0 30px rgba(5,217,232,.35);
+    filter:drop-shadow(3px 0 rgba(255,42,109,.5)) drop-shadow(-3px 0 rgba(5,217,232,.5));
+    animation:glitch 6.5s infinite steps(1)
+  }
+  @keyframes glitch{
+    0%,93%,100%{filter:drop-shadow(3px 0 rgba(255,42,109,.5)) drop-shadow(-3px 0 rgba(5,217,232,.5))}
+    94%{filter:drop-shadow(-5px 0 rgba(255,42,109,.7)) drop-shadow(5px 0 rgba(5,217,232,.7)); transform:translateX(1px)}
+    96%{filter:drop-shadow(5px 0 rgba(249,240,2,.6)) drop-shadow(-5px 0 rgba(5,217,232,.7)); transform:translateX(-1px)}
+  }
+  .tag{color:var(--dim); font-size:clamp(12px,2.3vw,15px); letter-spacing:.22em}
+  .tag b{color:var(--ink); font-weight:600}
+
+  /* ---------- lens cards ---------- */
+  .lenses{display:flex; gap:clamp(16px,3vw,30px); flex-wrap:wrap; justify-content:center;
+    width:100%; max-width:960px; z-index:1}
+  .card{
+    --acc:var(--cyan);
+    position:relative; flex:1 1 380px; max-width:452px; min-width:300px;
+    text-decoration:none; color:inherit; background:var(--panel);
+    border:1px solid rgba(255,255,255,.08); border-radius:4px; overflow:hidden;
+    transition:transform .28s cubic-bezier(.2,.7,.2,1), box-shadow .28s, border-color .28s;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .card:hover,.card:focus-visible{transform:translateY(-10px); border-color:var(--acc);
+    box-shadow:0 20px 50px rgba(0,0,0,.6), 0 0 0 1px var(--acc), 0 0 34px -6px var(--acc); outline:none}
+  .shot{position:relative; aspect-ratio:16/9; overflow:hidden; background:#05050a;
+    border-bottom:1px solid rgba(255,255,255,.07)}
+  .shot img{width:100%; height:100%; object-fit:cover; display:block;
+    transform:scale(1.04); transition:transform .5s ease; filter:saturate(1.08) contrast(1.04)}
+  .card:hover .shot img{transform:scale(1.12)}
+  .shot::after{content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, transparent 40%, rgba(13,13,23,.92))}
+  .badge{position:absolute; top:12px; left:12px; z-index:2; font-size:10.5px;
+    letter-spacing:.26em; padding:5px 9px; border-radius:2px; color:#06060c;
+    background:var(--acc); font-weight:700; box-shadow:0 0 16px -2px var(--acc)}
+  .emblem{position:absolute; top:11px; right:12px; z-index:2; display:flex; gap:3px}
+  .body{padding:18px 20px 22px}
+  .lensname{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+  .lensname h2{margin:0; font-size:clamp(30px,5.2vw,44px); line-height:1; letter-spacing:.02em}
+  .lensname .sub{font-size:13px; letter-spacing:.24em; color:var(--acc); opacity:.9}
+  .vibe{margin:9px 0 14px; color:var(--dim); font-size:13px; line-height:1.5}
+  .vibe em{color:var(--ink); font-style:normal; border-bottom:1px dashed var(--acc)}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px}
+  .chip{font-size:10.5px; letter-spacing:.14em; padding:4px 8px; border-radius:2px;
+    color:var(--acc); border:1px solid color-mix(in srgb, var(--acc) 40%, transparent);
+    background:color-mix(in srgb, var(--acc) 9%, transparent)}
+  .cta{display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:13px 16px; border-radius:3px; font-weight:700; letter-spacing:.16em; font-size:14px;
+    color:#06060c; background:var(--acc); transition:filter .2s, transform .2s}
+  .card:hover .cta{filter:brightness(1.12)}
+  .cta .arrow{font-size:17px; transition:transform .25s}
+  .card:hover .cta .arrow{transform:translateX(5px)}
+
+  /* PIXEL card — blocky / Minecraft-coded */
+  .card.pixel{--acc:var(--green); border-radius:0;
+    box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 0 0 2px #0c1a14}
+  .card.pixel:hover{box-shadow:6px 6px 0 0 rgba(0,255,159,.22), 0 18px 44px rgba(0,0,0,.6), 0 0 0 2px var(--green)}
+  .card.pixel .shot img{image-rendering:pixelated}
+  .card.pixel .cta{border-radius:0; box-shadow:inset -3px -3px 0 rgba(0,0,0,.32), inset 3px 3px 0 rgba(255,255,255,.28)} /* MC button bevel */
+  .card.pixel h2{font-family:ui-monospace,monospace; text-shadow:3px 3px 0 rgba(0,0,0,.55)}
+  .px{width:8px; height:8px; background:var(--green); box-shadow:0 0 8px var(--green)}
+  .px:nth-child(2){opacity:.6} .px:nth-child(3){opacity:.3}
+
+  /* 2.5D card — ornate / Diablo-coded */
+  .card.diablo{--acc:var(--gold)}
+  .card.diablo .body{background:
+    radial-gradient(120% 80% at 50% 0%, rgba(245,185,66,.07), transparent 60%), var(--panel)}
+  .card.diablo h2{font-family:Georgia,"Times New Roman",serif; font-weight:700;
+    background:linear-gradient(180deg,var(--goldhi),#caa14a); -webkit-background-clip:text;
+    background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 1px 10px rgba(245,185,66,.3)}
+  .card.diablo .cta{background:linear-gradient(180deg,var(--goldhi),#c9952f); color:#1a1206;
+    border:1px solid #7a5a1d}
+  .card.diablo .badge{color:#1a1206}
+  .rune{width:9px; height:9px; background:var(--gold); transform:rotate(45deg);
+    box-shadow:0 0 9px var(--gold)} .rune:nth-child(2){opacity:.55} .rune:nth-child(3){opacity:.28}
+  /* gold corner filigree on the preview */
+  .card.diablo .shot::before{content:""; position:absolute; z-index:2; inset:8px; pointer-events:none;
+    border:1px solid rgba(245,185,66,.35);
+    -webkit-mask:
+      linear-gradient(#000,#000) 0 0/16px 1px no-repeat, linear-gradient(#000,#000) 0 0/1px 16px no-repeat,
+      linear-gradient(#000,#000) 100% 0/16px 1px no-repeat, linear-gradient(#000,#000) 100% 0/1px 16px no-repeat,
+      linear-gradient(#000,#000) 0 100%/16px 1px no-repeat, linear-gradient(#000,#000) 0 100%/1px 16px no-repeat,
+      linear-gradient(#000,#000) 100% 100%/16px 1px no-repeat, linear-gradient(#000,#000) 100% 100%/1px 16px no-repeat}
+
+  /* ---------- shared save banner ---------- */
+  .save{margin:clamp(20px,3vw,34px) 0 0; width:100%; max-width:960px; z-index:1;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap; justify-content:center;
+    padding:15px 20px; border:1px solid rgba(255,255,255,.1); border-radius:4px;
+    background:linear-gradient(90deg, rgba(0,255,159,.05), rgba(245,185,66,.05));}
+  .save .ic{font-size:20px; filter:drop-shadow(0 0 8px var(--cyan))}
+  .save .txt{flex:1 1 260px; min-width:220px}
+  .save .txt h3{margin:0 0 3px; font-size:13.5px; letter-spacing:.2em; color:var(--ink)}
+  .save .txt p{margin:0; font-size:12px; color:var(--dim); line-height:1.5}
+  .save .txt p b{color:var(--cyan)}
+  #readout{display:flex; align-items:center; gap:10px; font-size:12.5px; letter-spacing:.1em;
+    padding:9px 14px; border-radius:3px; border:1px solid rgba(255,255,255,.12);
+    background:rgba(0,0,0,.35); white-space:nowrap}
+  #readout .dot{width:9px; height:9px; border-radius:50%; background:#3a4254; flex:none}
+  #readout.live{border-color:rgba(0,255,159,.5); background:rgba(0,255,159,.06)}
+  #readout.live .dot{background:var(--green); box-shadow:0 0 10px var(--green); animation:pulse 1.6s ease-in-out infinite}
+  #readout b{color:var(--green)} #readout .sep{color:#39414f}
+  @keyframes pulse{50%{opacity:.35; transform:scale(.82)}}
+
+  footer{margin-top:auto; padding-top:26px; text-align:center; color:var(--dim);
+    font-size:11.5px; letter-spacing:.14em; z-index:1}
+  footer a{color:var(--cyan); text-decoration:none} footer a:hover{text-decoration:underline}
+  .heart{color:var(--mag)}
+
+  @media (max-width:560px){
+    .save{flex-direction:column; text-align:center} #readout{white-space:normal}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .bg::before,.ember,#readout.live .dot,h1{animation:none}
+  }
 </style>
 </head>
 <body>
-<canvas id="cv" width="640" height="360"></canvas>
-<!-- bump ?v= together with any release so browsers never mix cached file versions -->
-<script src="js/font.js?v=17"></script>
-<script src="js/data.js?v=17"></script>
-<script src="js/sfx.js?v=17"></script>
-<script src="js/sprites.js?v=17"></script>
-<script src="js/world.js?v=17"></script>
-<script src="js/ui.js?v=17"></script>
-<script src="js/game.js?v=17"></script>
-<script src="mods/mods.js?v=17"></script>
+<div class="bg"></div><div class="scan"></div>
+
+<header>
+  <span class="kicker">▣ NIGHT CITY · 2077 ▣</span>
+  <h1>NIGHT CITY</h1>
+  <p class="tag">CHOOSE YOUR LENS — <b>ONE CITY</b>, TWO REALITIES</p>
+</header>
+
+<main class="lenses">
+  <!-- PIXEL -->
+  <a class="card pixel" href="pixel/" aria-label="Play the Pixel (top-down 8-bit) edition">
+    <div class="shot">
+      <span class="badge">STYLE 01</span>
+      <span class="emblem"><i class="px"></i><i class="px"></i><i class="px"></i></span>
+      <img src="img/pixel.png" alt="Pixel edition — top-down neon gunplay" loading="eager" width="1280" height="720">
+    </div>
+    <div class="body">
+      <div class="lensname"><h2>PIXEL</h2><span class="sub">TOP-DOWN</span></div>
+      <p class="vibe">Crafted block by block. If <em>Minecraft</em> rampaged through Night City — crisp 8-bit sprites, classic overhead view.</p>
+      <div class="chips"><span class="chip">8-BIT SPRITES</span><span class="chip">OVERHEAD</span><span class="chip">PURE PIXELS</span></div>
+      <div class="cta"><span>PLAY PIXEL</span><span class="arrow">▶</span></div>
+    </div>
+  </a>
+
+  <!-- 2.5D / DIABLO -->
+  <a class="card diablo" href="diablo/" aria-label="Play the 2.5D Diablo-style isometric edition">
+    <div class="shot">
+      <span class="badge">STYLE 02</span>
+      <span class="emblem"><i class="rune"></i><i class="rune"></i><i class="rune"></i></span>
+      <img src="img/diablo.png" alt="2.5D edition — Diablo-style isometric city" loading="eager" width="1280" height="720">
+    </div>
+    <div class="body">
+      <div class="lensname"><h2>2.5D</h2><span class="sub">ISOMETRIC</span></div>
+      <p class="vibe">Dark, ornate, dimetric. If <em>Diablo III</em> stalked Night City — raised skyline, depth-sorted streets, orb-and-skill HUD.</p>
+      <div class="chips"><span class="chip">ISOMETRIC</span><span class="chip">DIABLO-STYLE</span><span class="chip">DEPTH &amp; SHADOW</span></div>
+      <div class="cta"><span>ENTER 2.5D</span><span class="arrow">▶</span></div>
+    </div>
+  </a>
+</main>
+
+<section class="save">
+  <span class="ic">⛓</span>
+  <div class="txt">
+    <h3>ONE SOULPRINT, BOTH LENSES</h3>
+    <p>Your level, eddies, weapons &amp; rides are <b>shared</b> — hit Level 25 in Pixel, walk into 2.5D already legendary. Same save, either style.</p>
+  </div>
+  <div id="readout"><span class="dot"></span><span id="readout-text">SCANNING FOR SAVE…</span></div>
+</section>
+
+<footer>
+  <p>BUILT WITH <span class="heart">♥</span> — VANILLA JS, ZERO DEPENDENCIES, ALL PROCEDURAL ·
+  <a href="https://github.com/yeahdongcn/night-city-pixel" target="_blank" rel="noopener">SOURCE ON GITHUB</a></p>
+</footer>
+
+<script>
+  // Read the shared save (same origin → same localStorage as both editions) and show a live readout.
+  (function () {
+    var el = document.getElementById('readout'), t = document.getElementById('readout-text');
+    var d = null;
+    try { var s = localStorage.getItem('ncpx2077_v1'); if (s) d = JSON.parse(s); } catch (e) {}
+    if (d && (d.lvl || d.eddies != null)) {
+      var money = (d.eddies || 0).toLocaleString('en-US');
+      var w = (d.weapons && d.weapons.length) || 0, c = (d.cars && d.cars.length) || 0;
+      var who = d.gender === 'f' ? 'V♀' : 'V♂';
+      el.classList.add('live');
+      t.innerHTML = who + ' &nbsp;·&nbsp; <b>LVL ' + (d.lvl || 1) + '</b>'
+        + ' <span class="sep">·</span> €' + money
+        + ' <span class="sep">·</span> ' + w + ' GUNS'
+        + ' <span class="sep">·</span> ' + c + ' RIDES';
+    } else {
+      t.innerHTML = 'NO SAVE YET — your first run forges it';
+    }
+  })();
+
+  // a handful of drifting embers
+  (function () {
+    var f = document.createDocumentFragment(), C = ['#ff9f1c', '#05d9e8', '#ff2a6d', '#00ff9f'];
+    for (var i = 0; i < 14; i++) {
+      var e = document.createElement('div'); e.className = 'ember';
+      e.style.left = (Math.random() * 100) + 'vw';
+      e.style.setProperty('--c', C[i % C.length]);
+      e.style.setProperty('--d', (7 + Math.random() * 7) + 's');
+      e.style.setProperty('--dl', (-Math.random() * 10) + 's');
+      e.style.setProperty('--x', (Math.random() * 80 - 40) + 'px');
+      f.appendChild(e);
+    }
+    document.body.appendChild(f);
+  })();
+</script>
 </body>
 </html>
