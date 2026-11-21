@@ -17,6 +17,40 @@ zero dependencies, zero asset files, one neon-soaked city generated from code.</
 <p align="center"><img src="screenshots/action.png" width="800" alt="Vehicular combat: blood tire-tracks across an intersection, loot drops glowing in the rain"></p>
 <p align="center"><i>Run a Scav pack over at full speed — the blood stays on the asphalt, the loot is yours.</i></p>
 
+> **Three games live on this site** — pick one on the [landing page](https://yeahdongcn.github.io/):
+> NIGHT CITY in two lenses ([Pixel](https://yeahdongcn.github.io/pixel/) top-down ·
+> [2.5D](https://yeahdongcn.github.io/diablo/) isometric), described below, and
+> **[NEON TURF](https://yeahdongcn.github.io/rts/)**, a base-building RTS.
+
+## NEON TURF — a different kind of war
+
+<p align="center"><a href="https://yeahdongcn.github.io/rts/"><img src="img/rts.png" width="800" alt="NEON TURF: two gang bases fighting over a field of Glint in a rain-slick neon city, seen from above"></a></p>
+
+**[Play NEON TURF](https://yeahdongcn.github.io/rts/)** — a classic real-time strategy game in an
+original neon megacity: harvest **Glint**, raise a base, tech up, claim the street businesses
+for income, and break the rival gang. Skirmish against an AI on three difficulties, in English
+or 中文, with mouse and keyboard or touch.
+
+| | **Curfew Company** / 宵禁连 | **Pitfang** / 獠牙帮 |
+|---|---|---|
+| Who | the neighbourhood watch that became an army | a prize-fight circuit that outgrew its basements |
+| How it fights | positional combined arms: units **brace** to out-range, slow and shell, then walk the line forward a block at a time | tempo: cheap, fast, self-healing brawlers and fighting beasts that **surge**, **leap** and get paid for kills |
+| Signature | civic vehicles pressed into service, a one-shot drone swarm, a rolling artillery strike | a limit-one champion with an aura, beasts loosed behind enemy lines, a crowd-fuelled frenzy with a comedown |
+
+- 41 buildings and units, 4 support powers, veterancy, fog of war, power management, capturable turf
+- 4 named maps plus a seeded city generator; a skirmish AI that plays through the same
+  commands the player has
+- every sprite drawn in code, every sound and the adaptive soundtrack synthesized: still zero
+  dependencies, zero asset files
+- **built to grow:** a gang is one data file (plus an optional art file) — the engine, HUD, AI
+  and tests pick it up without a line of engine code. See [AGENTS.md](AGENTS.md#adding-a-gang).
+
+NEON TURF is its own setting: its gangs, units, art and audio are original.
+
+---
+
+# NIGHT CITY — Pixel Edition
+
 ## What you do
 
 Pick your V, roll a random starter kit, and work Night City: hunt **bounties**, take down
@@ -47,9 +81,8 @@ gun store, the autofixer, and the ripperdoc.
 ## Run it
 
 ```bash
-git clone https://github.com/yeahdongcn/night-city-pixel && cd night-city-pixel
-./run.sh                      # serves on http://localhost:8080
-# or: python3 -m http.server 8080   ·   or: npx serve .   ·   or just open index.html
+git clone https://github.com/yeahdongcn/yeahdongcn.github.io && cd yeahdongcn.github.io
+python3 -m http.server 8080   # then open http://localhost:8080/  (or: npx serve .)
 ```
 
 Desktop: keyboard + mouse (click once to enable audio).
@@ -84,9 +117,9 @@ the house style. Bring your own agent.
 
 - **Agents:** read **[AGENTS.md](AGENTS.md)** first — project map, invariants, and the rules
   that keep saves and determinism intact.
-- **Everyone:** `node test/smoke.js` must stay green, keep the zero-dependency /
-  zero-binary-asset rule (all art and audio are procedural), and bump the `?v=` cache
-  version in `index.html` when you ship.
+- **Everyone:** keep the zero-dependency / zero-binary-asset rule (all art and audio are
+  procedural), bump the `?v=` cache version in the game's `index.html` when you ship, and for
+  NEON TURF keep `node rts/test/smoke.js` green.
 - Content additions (weapons/cars/stations) are usually better as **mods**; engine PRs
   should come with smoke-test coverage.
 
@@ -96,12 +129,12 @@ the house style. Bring your own agent.
 - 128×128-tile city pre-rendered to offscreen canvases (deterministic seed so saves stay valid);
   per-building fading roof layers for interiors; two-pass entity rendering for correct facade depth.
 - WebAudio: every sound synthesized; the radio is one 64-step sequencer driven by station data.
-- `node test/smoke.js` — headless simulation of every system (combat, stealth, shops, driving,
-  psychos, airdrops, weather, save/load) against stubbed DOM/canvas.
+- NEON TURF: a deterministic fixed-step simulation kept apart from presentation, so
+  `node rts/test/smoke.js` plays whole AI-vs-AI matches headless in seconds.
 - Debug URLs: `?autostart`, `?demo`, `?charsel`, `?indoor`, `?jigjig`, `?airdrop`, `&wx=storm|fog|acid|…`, `&v=f`.
 
 ## License
 
-MIT (see [LICENSE](LICENSE)). **Unofficial fan tribute** inspired by Cyberpunk 2077 — not
+MIT (see [LICENSE](LICENSE)). NIGHT CITY is an **unofficial fan tribute** inspired by Cyberpunk 2077 — not
 affiliated with or endorsed by CD PROJEKT RED. All code, pixel art, and audio are original;
 in-universe names appear in a non-commercial fan context.
