@@ -44,8 +44,9 @@ NT.AI.MIN = 60 * NT.TPS;           // ticks per minute
 //   retreat     a wave below this fraction of its starting value falls back
 //   prodMul / incomeMul   handicaps (normal = 1 exactly: fair)
 //   grace       minutes before its first attack wave may leave (it still defends); easy only — a learning opponent
+//   armyCap     army value above which it stops training fighters     capWave   a wave takes only threshold-worth of units
 NT.AI.LEVELS = {
-  easy:   { think: 40, harvesters: 3, maxDrop: 2, firstWave: 2500, waveGrow: 600, waveMax: 5000, allIn: 30, grace: 7,
+  easy:   { think: 40, harvesters: 3, maxDrop: 2, firstWave: 2500, waveGrow: 600, waveMax: 5000, allIn: 30, grace: 7, armyCap: 7000, capWave: true,
             defences: 1, lateDefences: 1, producers: 1, powers: false, harass: false, recapture: false,
             retreat: 0.25, prodMul: 0.65, incomeMul: 0.65, depth: 1 },
   normal: { think: 20, harvesters: 6, maxDrop: 3, firstWave: 5000, waveGrow: 1500, waveMax: 12000, allIn: 20,
@@ -645,6 +646,7 @@ NT.AI._army = function (world, B, p) {
     if (q.items.length >= depth) continue;
     let d = A._special(world, B, p, qid, harvWant);
     if (!d) {
+      if (lv.armyCap && k.armyValue >= lv.armyCap) continue;
       let best = null;
       for (const c of fight) if (c.def.queue === qid && (!best || c.s > best.s)) best = c;
       if (best) d = best.def;
@@ -862,6 +864,7 @@ NT.AI._waves = function (world, B, p) {
     if (idle.length && (strong || late || (allIn && gv >= thr * 0.4))) {
       const c = A._centroid(idle, {}), t = A._pickTarget(world, B, c.cx, c.cy);
       if (!t) return;
+      if (lv.capWave) { let v = 0, n = 0; while (n < idle.length && v < thr) v += idle[n++].def.cost; idle.length = n; }   // the rest stay home
       B.wave = { ids: idle.map(function (e) { return e.id; }), units: idle, target: t.id, start: A._value(idle), c: c };
       B.waves++; B.lastWave = tick; B.stats.waves++;
       for (const e of idle) { B.role[e.id] = 'wave'; A._order(B, 'amove', e, t.x / T, t.y / T); }
