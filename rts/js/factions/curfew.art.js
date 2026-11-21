@@ -2,15 +2,16 @@
 // NEON TURF — curfew.art.js (presentation: the Curfew Company's hand-drawn art; needs js/art.js).
 // Shape language: RECTILINEAR — boxes, chamfers, chevrons, stencil stripes, straight barrels. Olive drab,
 // concrete, canvas, gunmetal under warm sodium light; civic vehicles pressed into service. Every defence
-// keeps an oil-drum fire. Team colour: shoulder pads, cab roofs, body stripes, roof bands, flags.
+// keeps an oil-drum fire. Team colour: shoulder ends + one mark on the hat / prop (infantry), cab roofs, body
+// stripes, roof bands, flags. SIGNATURE: the night watch carries torches — every Picket throws a short warm beam
+// ahead of his rifle (live), so Curfew ground is a constellation of warm lights: drum fires, torches, embers.
 // palette.hazard sits next to the default team amber: it only ever appears as thin black-striped bands.
 (function () {
   const A = NT.Art, P = A.P, PI = Math.PI, TAU = PI * 2;
   const SODIUM = '#ffe2b0', FLAME = '#ff8a2a', FLAME_HI = '#ffe39a', BRASS = '#cfa957', CHALK = '#e8e4d6';
-  const TIN = '#7f8996', ASH = '#2a2e36', TWEED = '#6b5b45', NOFLASH = false;
+  const TIN = '#7f8996', ASH = '#2a2e36', VERDI = '#6fae96', NOFLASH = false;
 
   // ---- shared helpers ---------------------------------------------------------------------------------
-  function hg(b) { const sw = 5.6 + 3.2 * b, td = 2.6 + 1.5 * b; return { sw: sw, td: td, SY: sw - td * 0.8 }; }   // mirrors the humanoid rig
   function slab(g, x, y, w, h, col) { g.rect(x, y, w, h, col || '#22272f', { lit: 0, bevel: -0.5, r: 1.2, ol: 'rgba(0,0,0,0.5)', lw: 0.5 }); }
   function stencil(g, x, y, w, h, col, seed) { g.scribble(x, y, w, h, col || 'rgba(232,228,214,0.55)', { seed: seed || 5, lw: 0.8, rows: Math.max(1, Math.round(h / 2.2)) }); }
 
@@ -97,6 +98,54 @@
     g.poly([x, y - h / 2, x + t, y - h / 2, x + w, y, x + t, y + h / 2, x, y + h / 2, x + w - t, y], s.team, { lit: 0.12, bevel: 0.5, lw: 0.45 });
   }
 
+  // ---- infantry, drawn locally: few LARGE masses (a pale tin hat, a squared shoulder block with team ends, one
+  // exaggerated prop). The kit's humanoid is too slight for the Company at 1x. All figures face +x.
+  const HELM = '#cfc7ad', HELM_HI = '#e9e3cd', BOOT = '#51483a', SKIN = '#c9966f', WOOD = '#9c7040', LENS = '#fff3cf', BEAM = '#ffcf85', GLARE = '#ffe6b4';
+  function gait(s) { return s.moving ? Math.sin(s.walk * TAU) : 0; }
+  function boots(g, sn, reach, fy, col) {
+    g.ellipse(1 + sn * reach, -fy, 2.4, 1.8, col, { lit: 0.1, bevel: 0.6, lw: 0.5 });
+    g.ellipse(1 - sn * reach, fy, 2.4, 1.8, col, { lit: 0.1, bevel: 0.6, lw: 0.5 });
+  }
+  // standing: two boots that stride; braced (kneel): rear shin flat on the ground, front knee up
+  function legs(g, sn, kneel, cloth) {
+    if (!kneel) { boots(g, sn, 3.3, 3, BOOT); return; }
+    g.capsule(-2, 3.4, -6.4, 3.8, 1.6, cloth, { lw: 0.5 });
+    g.ellipse(-7.4, 3.8, 2.1, 1.7, BOOT, { lit: 0.1, bevel: 0.6, lw: 0.5 });
+    g.capsule(0, -3, 4.8, -3.8, 2, cloth, { lit: 0.1, lw: 0.5 });
+    g.ellipse(5.9, -3.8, 2.5, 1.9, BOOT, { lit: 0.1, bevel: 0.6, lw: 0.5 });
+  }
+  // squared shoulder block (x0 .. x0 + d, +-hw) whose two ends are the owner's colour
+  function shoulders(g, s, x0, d, hw, cloth, pad) {
+    g.rect(x0, -hw, d, 2 * hw, cloth, { r: 1.7, lit: 0.16 });
+    g.rect(x0, -hw, d, pad, s.team, { r: 1.5, lit: 0.2, lw: 0.3 });
+    g.rect(x0, hw - pad, d, pad, s.team, { r: 1.5, lit: 0.2, lw: 0.3 });
+  }
+  function arm(g, x0, y0, x1, y1, r, sleeve, hand) {
+    g.capsule(x0, y0, x1, y1, r, sleeve, { r1: r * 0.85, lit: 0.1, lw: 0.5 });
+    g.circle(x1, y1, r * 0.82, hand || SKIN, { lit: 0.1, bevel: 0.6, lw: 0.4 });
+  }
+  // the warden's tin hat from above: wide pale brim, dome, a bold band in the owner's colour running fore and aft
+  function tinHat(g, s, x, y, r) {
+    g.circle(x, y, r, HELM, { lit: 0.22, lw: 0.6 });
+    g.circle(x, y, r * 0.64, HELM_HI, { lit: 0.2, bevel: 0.7, ol: 'rgba(60,54,40,0.45)', lw: 0.25 });
+    g.rect(x - r + 0.5, y - 1.15, 2 * r - 1, 2.3, s.team, { lit: 0.12, bevel: 0, ol: 'rgba(52,44,28,0.6)', lw: 0.3, r: 0.9 });
+  }
+  // THE COMPANY'S SIGNATURE — the night watch carries torches: a short warm cone thrown ahead of the lens.
+  // The beam is painted in anim() (normal blending: it TINTS what it falls on, so a packed squad never burns out
+  // to white the way stacked additive light does); only the small lens glare goes to the additive lights() pass.
+  // k scales the brightness; ang swings the beam.
+  function torchBeam(g, x, y, ang, k) {
+    const c = Math.cos(ang), n = Math.sin(ang);
+    g.puff(x + c * 5.5, y + n * 5.5, 4.6, BEAM, 0.4 * k);
+    g.puff(x + c * 12, y + n * 12, 6.8, BEAM, 0.36 * k);
+    g.puff(x + c * 19.5, y + n * 19.5, 9, BEAM, 0.26 * k);
+  }
+  function torchGlare(g, x, y, ang, k) { g.puff(x + Math.cos(ang) * 1.5, y + Math.sin(ang) * 1.5, 2.2, GLARE, 0.6 * k); }
+  // the watch sweeps its beam while standing; it steadies on a shot and on the march
+  function picketSweep(s) { return s.moving ? 0 : Math.sin(s.t * 0.8 + s.seed * 1.7) * 0.3 * (1 - s.fire); }
+  // how bright a hand torch burns right now: surges under a boost, sputters when soaked / slowed
+  function torchK(s) { return s.boost ? 1.3 : s.hinder ? (Math.sin(s.t * 23 + s.seed) > 0 ? 0.75 : 0.3) : 1; }
+
   NT.Art.define('curfew', {
     // ======================================================================== BUILDINGS
     // ---- Ward Command: requisitioned fire station — three bay doors, hose tower, map-table tarp on the roof
@@ -155,13 +204,28 @@
 
     // ---- Genny Shed: tin roof, two diesel generators on the pad, exhaust stacks, drums, cables
     genny: {
-      height: 32,
+      height: 38,
       base: function (g, s) {
         const W = s.W, H = s.H, pal = s.pal;
         slab(g, 3, 24, W - 6, H - 27, '#2a2f37');
-        g.gable(4, 6, W - 8, 22, 10, 4, { roof: TIN, wall: '#4e5560', ribs: 2.4 });
+        g.gable(4, 6, W - 8, 22, 10, 4, { roof: TIN, wall: '#4e5560' });
         const yT = 6 - 10, yR = 6 + 11 - 10 - 4, yE = 6 + 22 - 10;
         for (const X of [12, W - 22]) { g.rect(X, yT + 0.9, 10, yR - yT - 0.9, A.shade(s.team, 0.08), A.FLAT); g.rect(X, yR, 10, yE - yR - 0.9, A.shade(s.team, -0.18), A.FLAT); }
+        if (g.vis()) {                                                                     // corrugated tin: every rib has a lit and a shaded flank
+          const c = g.ctx;
+          c.fillStyle = 'rgba(0,0,0,0.16)'; c.fillRect(4.6, yR, W - 9.2, yE - yR - 0.6);              // the south pitch falls away from the light
+          c.fillStyle = 'rgba(150,84,44,0.35)'; c.fillRect(31, yR + 3, 7.2, yE - yR - 3.6); c.fillRect(7.6, yT + 1, 2.4, 5);   // rust runs
+          c.lineCap = 'butt'; c.lineWidth = 0.9;
+          c.strokeStyle = 'rgba(255,255,255,0.26)'; c.beginPath();
+          for (let X = 5.4; X < W - 5; X += 2.4) { c.moveTo(X, yT + 0.7); c.lineTo(X, yE - 0.5); }
+          c.stroke();
+          c.strokeStyle = 'rgba(0,0,0,0.34)'; c.beginPath();
+          for (let X = 6.5; X < W - 5; X += 2.4) { c.moveTo(X, yT + 0.7); c.lineTo(X, yE - 0.5); }
+          c.stroke();
+          c.fillStyle = 'rgba(0,0,0,0.5)';                                                       // scalloped eave shadow on the wall
+          for (let X = 4.6; X < W - 5.6; X += 2.4) c.fillRect(X, yE - 0.2, 1.3, 1.5);
+        }
+        g.rect(4.4, yR - 1.1, W - 8.8, 2.2, A.shade(TIN, 0.32), { r: 0.8, lit: 0.1, bevel: 0.8, lw: 0.35 });   // ridge cap
         g.door(W / 2 - 6, yE + 2, 12, 7, { lit: SODIUM, shut: 0.3 });
         for (let k = 0; k < 2; k++) {
           const x = k ? 34 : 7, y = 36, gb = g.box(x, y, 22, 14, 8, { roof: pal.drab, wall: pal.drabDark });
@@ -169,7 +233,12 @@
           g.rect(gb.x + 11.5, gb.y + 2, 8.5, gb.d - 4, s.team, { r: 0.6, lit: 0.14, lw: 0.5 });
           g.vent(gb.wall.x + 2, gb.wall.y + 2, 9, gb.wall.h - 3.6, { step: 1.5 });
           g.led(gb.wall.x + 16, gb.wall.y + 4, '#ffb347', 0.75);
-          g.at(8, function () { g.stack(x + 4, y + 3, 2.1, 13, '#6a7384'); });
+          g.at(8, function () {                                                             // tall exhaust stack with a rain cap
+            g.stack(x + 4, y + 3, 2.5, 25, '#7a8394');
+            g.at(8, function () { g.cyl(x + 4, y + 3, 2.9, 1.2, '#565e6c'); });
+            g.at(17, function () { g.cyl(x + 4, y + 3, 2.9, 1.2, '#565e6c'); });
+            g.at(26.5, function () { g.ellipse(x + 5.4, y + 3, 3.2, 2.5, '#9aa3b2', { lit: 0.2, lw: 0.5 }); });
+          });
         }
         if (g.vis()) {
           g.pipe([18, 50, 18, 55, 32, 57, 45, 55, 45, 50], 1, '#1c1f26');
@@ -180,7 +249,7 @@
       },
       anim: function (g, s) {
         for (let k = 0; k < 2; k++) {
-          const x = (k ? 38 : 11), y = 39 - 21, t = s.t * (s.powered ? 1.4 : 0.4) + k * 0.5 + s.seed;
+          const x = (k ? 38 : 11), y = 39 - 35, t = s.t * (s.powered ? 1.4 : 0.4) + k * 0.5 + s.seed;
           for (let i = 0; i < 2; i++) { const p = (t + i * 0.5) % 1; g.puff(x + p * 3 + Math.sin(t * 7 + i) * 0.8, y - p * 10, 1.6 + p * 3, '#c9d0dc', 0.22 * (1 - p)); }
         }
       },
@@ -236,9 +305,11 @@
         g.door(hut.wall.x + 15, hut.wall.y + 3, 5, 8, { lit: SODIUM });
         // sorted crates, Glint showing under the lids
         for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) {
-          const x = 74 + i * 6.5, y = 14 + j * 13, cr = g.crate(x, y, 5.6, 8, 4, pal.drab, { nx: 1, ny: 2 });
-          g.rect(cr.x + 1, cr.y + 1, 3.6, 2.6, pal.glint, { r: 0.4, lit: 0.2, lw: 0.3 });
-          g.glow(P.rect(cr.x + 1, cr.y + 1, 3.6, 2.6), pal.glint, { r: 2, a: 0.5 });
+          const x = 73.2 + i * 7, y = 14 + j * 13, cr = g.crate(x, y, 6.4, 8.6, 4, pal.drab, { nx: 1, ny: 1 });
+          g.rect(cr.x + 0.7, cr.y + 0.7, 5, 7.2, '#0e1319', { lit: 0, bevel: -0.8, r: 0.5, lw: 0.3 });      // open bin ...
+          const gp = g.rect(cr.x + 1, cr.y + 1, 4.4, 6.6, pal.glint, { r: 1.2, lit: 0.3, lw: 0.3 });       // ... heaped with Glint
+          if (g.vis()) for (let n = 0; n < 4; n++) g.rect(cr.x + 1.3 + ((n * 7 + i * 3 + j) % 5) * 0.7, cr.y + 1.4 + n * 1.5, 1.3, 1.3, n % 2 ? '#ffffff' : A.shade(pal.glint, -0.28), A.FLAT);
+          g.glow(gp, pal.glint, { r: 2.6, a: 0.7 });
         }
         g.crate(8, 34, 9, 7, 5, pal.canvas, { strap: s.team }); g.crate(8, 45, 9, 7, 5, pal.canvas, { strap: s.team });
         // fence with a gap for the gate at the south
@@ -253,7 +324,7 @@
         });
         g.lamp(44, H - 15.5, '#ff6a3a', { r: 0.8, reach: 5 });
       },
-      anim: function (g, s) { sparkle(g, 74, 8, 20, 22, s.t, s.seed % 7, 3); },
+      anim: function (g, s) { sparkle(g, 74, 9, 20, 22, s.t, s.seed % 7, 5); },
     },
 
     // ---- Motor Pool: bus depot — skylit roof, two roller doors, welding sparks, tyre stacks
@@ -514,44 +585,111 @@
       anim: function (g, s) { if (s.cargo >= 0.84) sparkle(g, -14, -5.5, 15, 11, s.t, s.seed % 5, 3); },
     },
 
-    // ---- Picket: slim neighbour, helmet, team armband + shoulders, straight service rifle
+    // ---- Picket: the night watch. Tin warden hat with a team band, squared team shoulders, a service rifle with
+    // a torch taped under the barrel (the beam is live: lights()). Braced = down on one knee.
     picket: {
-      frames: 6, kick: 0.9, muzzle: [A.rigs.humanoidMuzzle({ build: 0.25, weapon: 'rifle' })],
+      frames: 6, kick: 0.9, muzzle: [[13.8, 3.6]],
       body: function (g, s) {
-        const pal = s.pal, q = hg(0.25);
-        g.humanoid({ build: 0.25, cloth: pal.drab, sleeve: pal.drab, pad: s.team, head: 'helmet', headCol: A.shade(pal.drab, 0.12), stripe: s.team,
-          chest: pal.canvas, pack: A.shade(pal.canvas, -0.2), boot: '#2c2a26', weapon: 'rifle', wcol: '#5a4a3a', walk: s.walk, moving: s.moving });
-        g.capsule(0.9, q.SY - 0.6, 2.1, q.SY - 1.6, 1.25, s.team, { lit: 0.12, lw: 0.4 });            // armband on the trigger arm
+        const pal = s.pal, sn = gait(s), dep = s.deployed, rc = -s.fire * 1.3, gy = 3.6;
+        const lean = dep ? 0.4 : s.moving ? 0.18 + sn * 0.12 : 0.26, bx = dep ? -0.8 : 0, hw = 8, sy = hw - 2;
+        legs(g, sn, dep, pal.drabDark);
+        g.push(bx, 0, lean);
+        g.rect(-5.8, -3.2, 3.6, 6.4, A.shade(pal.canvas, -0.22), { r: 1, lit: 0.12, lw: 0.5 });   // haversack
+        shoulders(g, s, -3.3, 6.3, hw, pal.drab, 4.6);
+        g.pop();
+        const co = Math.cos(lean), si = Math.sin(lean);
+        g.push(rc, 0);
+        g.rect(3.6, gy + 0.7, 4.6, 2.7, '#737b8a', { r: 0.9, lit: 0.18, lw: 0.55 });         // the torch, taped beside the fore-end
+        g.rect(7.4, gy + 0.9, 1.3, 2.3, LENS, A.FLAT);
+        g.rect(7.6, gy - 0.9, 6, 1.8, '#a3acbb', { r: 0.4, lit: 0.16, lw: 0.6 });            // barrel
+        g.rect(-3, gy - 1.5, 11.2, 3, WOOD, { r: 0.8, lit: 0.18, lw: 0.6 });                 // stock + wooden fore-end
+        g.pop();
+        arm(g, bx - sy * si, sy * co, 0.8 + rc, gy + 0.6, 1.6, pal.drab);                     // trigger hand
+        arm(g, bx + sy * si, -sy * co, 5.6 + rc, gy - 0.9, 1.6, pal.drab);                    // left hand out on the fore-end
+        tinHat(g, s, bx + (dep ? 1.6 : 0.4), dep ? 0 : -0.3, 3.9);
       },
+      anim: function (g, s) { torchBeam(g, 9, 5.7, picketSweep(s), torchK(s)); },
+      lights: function (g, s) { torchGlare(g, 9, 5.7, picketSweep(s), torchK(s)); },
     },
 
-    // ---- Stovepipe: grey-haired vet, a FAT rocket tube on the shoulder, pack
+    // ---- Stovepipe: the old soldier. Khaki coat, grey hair gone thin on top, a FAT rocket tube on the right
+    // shoulder, a pack with three spare rounds standing in it. Braced = kneeling. Firing: live backblast.
     stovepipe: {
-      frames: 6, kick: 1.2,
-      muzzle: [[12.2, 4.27]],
+      frames: 6, kick: 1.2, muzzle: [[12.6, 4.8]],
       body: function (g, s) {
-        const pal = s.pal, q = hg(0.4), gy = q.sw * 0.62;
-        g.humanoid({ build: 0.4, cloth: pal.drab, sleeve: pal.drabDark, pad: s.team, head: 'bare', hair: '#c4c6cc', skin: '#c08d6a',
-          pack: pal.canvas, chest: pal.drabDark, boot: '#2c2a26', weapon: 'launcher', wcol: pal.drab, walk: s.walk, moving: s.moving });
-        g.rect(-8.5, gy - 2.6, 19.5, 5.2, A.shade(pal.drab, 0.1), { r: 1.2, lit: 0.2, lw: 0.6 });
-        g.rect(-10, gy - 3.3, 3, 6.6, '#3c4250', { r: 0.8, lw: 0.5 });                            // flared breech
-        g.rect(9.6, gy - 3, 2.4, 6, '#59606e', { r: 0.6, lw: 0.5 });                              // muzzle ring
-        g.rect(1.2, gy - 2.6, 2.6, 5.2, s.team, { lit: 0.12, bevel: 0.5, lw: 0.4 });
-        g.circle(q.td + 3.4, gy - 3.4, 1.4, '#c08d6a', { lw: 0.45 });
+        const pal = s.pal, sn = gait(s), dep = s.deployed, rc = -s.fire * 0.9, gy = 4.8, hw = 8.2, sy = hw - 2;
+        const lean = dep ? 0.22 : s.moving ? sn * 0.12 : 0.1, bx = dep ? -0.8 : 0, coat = A.mix(pal.drab, pal.canvas, 0.5);
+        legs(g, sn, dep, A.shade(coat, -0.3));
+        g.push(bx, 0, lean);
+        g.rect(-8, -6.2, 5.4, 9.8, s.team, { r: 1.2, lit: 0.16, lw: 0.55 });                    // pack under a team flap
+        for (let i = 0; i < 3; i++) {                                                          // spare rounds, nose up
+          g.circle(-5.3, -4.1 + i * 2.8, 1.35, '#d3d8e0', { lit: 0.25, lw: 0.4 });
+          g.circle(-5.3, -4.1 + i * 2.8, 0.55, ASH, A.FLAT);
+        }
+        shoulders(g, s, -3.2, 6.2, hw, coat, 4.5);
+        g.pop();
+        const co = Math.cos(lean), si = Math.sin(lean);
+        arm(g, bx + sy * si, -sy * co, 5.8 + rc, gy - 2.9, 1.6, coat);                        // left hand steadies the front
+        // head tucked against the tube: grey hair, thin on top
+        g.circle(bx + 0.6, -1.4, 3.4, '#d3d6dc', { lit: 0.2, lw: 0.6 });
+        g.circle(bx + 0.2, -1.4, 1.6, SKIN, { lit: 0.1, bevel: 0.4, ol: false });
+        g.push(rc, 0);
+        g.rect(-9.6, gy - 2.7, 21, 5.4, A.shade(pal.drab, 0.14), { r: 1.2, lit: 0.22, lw: 0.65 });   // THE TUBE
+        g.rect(-11.4, gy - 3.4, 3.2, 6.8, '#59606e', { r: 0.9, lit: 0.14, lw: 0.55 });            // flared breech
+        g.rect(10.2, gy - 3.1, 2.4, 6.2, '#737b8a', { r: 0.7, lit: 0.14, lw: 0.55 });             // muzzle ring
+        g.rect(2.6, gy - 2.7, 3.6, 5.4, s.team, { lit: 0.14, bevel: 0.5, lw: 0.3 });
+        g.rect(-5, gy - 2.7, 1.5, 5.4, 'rgba(0,0,0,0.28)', A.FLAT);
+        g.pop();
+        g.circle(0.6 + rc, gy + 2.9, 1.3, SKIN, { lit: 0.1, bevel: 0.6, lw: 0.4 });              // trigger hand under the tube
+      },
+      anim: function (g, s) {                                                              // backblast smoke rolling out behind
+        if (s.fire > 0.02) { const f = s.fire; g.puff(-15 - (1 - f) * 8, 4.8, 3.5 + (1 - f) * 6, '#d6dae2', 0.55 * f); }
+      },
+      lights: function (g, s) {                                                            // ... and its flare
+        if (s.fire > 0.02) { const f = s.fire; g.puff(-12.5, 4.8, 2.5 + 3 * f, FLAME_HI, f); g.puff(-17, 4.8, 4 + 4 * f, FLAME, 0.8 * f); }
       },
     },
 
-    // ---- Groundskeeper: flat cap, a big ring of keys, a white first-aid satchel with a team cross, toolbox
+    // ---- Groundskeeper: the caretaker. Flat cap with a peak, long tweed coat with tails, a big brass ring of keys in
+    // the left hand, a white first-aid satchel on the right hip with a bold cross in the owner's colour. Unarmed.
     groundskeeper: {
-      frames: 6, flash: NOFLASH, muzzle: [A.rigs.humanoidMuzzle({ build: 0.35, weapon: 'kit' })],
+      frames: 6, flash: NOFLASH, muzzle: [[8.6, 4.2]],
       body: function (g, s) {
-        const q = hg(0.35);
-        g.humanoid({ build: 0.35, cloth: TWEED, sleeve: TWEED, pad: s.team, head: 'cap', headCol: '#5c5446', skin: '#c9966f',
-          pack: '#5a6474', boot: '#2c2a26', weapon: 'kit', kitCol: '#eef1f4', cross: s.team, walk: s.walk, moving: s.moving });
-        const kx = -1.2, ky = -q.sw - 1.4;
+        const sn = gait(s), f = s.fire, hw = 7.4, coat = '#8a7658', cap = '#a8997c';
+        boots(g, sn, 3.3, 2.9, BOOT);
+        g.push(0, 0, sn * 0.1);
+        g.poly([-8.2, -4.2 + sn * 0.8, -3, -hw, 2.9, -hw, 2.9, hw, -3, hw, -8.2, 4.2 + sn * 0.8], coat, { r: 1.6, lit: 0.16 });   // long coat, tails behind
+        if (g.vis()) g.line(-8, sn * 0.8, -3.4, 0, 'rgba(0,0,0,0.35)', 0.7);                    // the vent between the tails
+        if (g.vis()) g.line(-2.2, -5.4, 2.4, 5.6, '#e9e5d8', 1.2, { cap: 'butt' });             // satchel strap across the back
+        g.pop();
+        // first-aid satchel on the right hip
+        g.rect(0.6, 4.6, 6.6, 6.2, '#f1efe6', { r: 1, lit: 0.1, lw: 0.6 });
         if (g.vis()) {
-          g.stroke(P.circle(kx, ky, 2.3), '#1a1b1f', 1.6); g.stroke(P.circle(kx, ky, 2.3), BRASS, 0.9);
-          for (let i = 0; i < 5; i++) { const a = PI * 0.15 + i * 0.5; g.line(kx + Math.cos(a) * 2.3, ky + Math.sin(a) * 2.3, kx + Math.cos(a) * 4.4, ky + Math.sin(a) * 4.4, i % 2 ? '#c9ced8' : BRASS, 0.9); }
+          g.rect(2.7, 5, 2.5, 5.4, 'rgba(30,32,40,0.5)', A.FLAT); g.rect(1.2, 6.45, 5.5, 2.5, 'rgba(30,32,40,0.5)', A.FLAT);
+          g.rect(3, 5.3, 1.9, 4.8, s.team, A.FLAT); g.rect(1.5, 6.75, 4.9, 1.9, s.team, A.FLAT);
+        }
+        arm(g, 0.2, 5.4, 4 + sn * 1.6 + f * 4, 4.4 - f * 0.4, 1.55, coat);                      // right hand: reaches out to patch up
+        // key ring in the left hand, swinging
+        const hx = 4.4 - sn * 1.6, hy = -7, kx = hx + 2.2, ky = hy - 1.6 + sn * 0.5;
+        arm(g, 0.2, -5.4, hx, hy, 1.55, coat);
+        if (g.vis()) {
+          g.stroke(P.circle(kx, ky, 2.5), '#1a1b1f', 2); g.stroke(P.circle(kx, ky, 2.5), BRASS, 1.1);
+          for (let i = 0; i < 4; i++) {
+            const a = -0.5 + i * 0.55 + sn * 0.3, c = Math.cos(a), n = Math.sin(a);
+            g.line(kx + c * 2.5, ky + n * 2.5, kx + c * 5.2, ky + n * 5.2, '#1a1b1f', 1.9);
+            g.line(kx + c * 2.5, ky + n * 2.5, kx + c * 5.2, ky + n * 5.2, i % 2 ? '#d9dee6' : BRASS, 1.1);
+          }
+        }
+        g.push(0, 0, sn * 0.1);                                                              // team epaulettes over the arm roots
+        g.rect(-3.3, -hw - 0.3, 6.2, 4.6, s.team, { r: 1.5, lit: 0.2, lw: 0.45 });
+        g.rect(-3.3, hw - 4.3, 6.2, 4.6, s.team, { r: 1.5, lit: 0.2, lw: 0.45 });
+        g.pop();
+        // flat cap: wide soft crown in eight panels, a dark peak forward, a button on top
+        g.rect(1.8, -2.9, 3.8, 5.8, A.shade(cap, -0.42), { r: 1.8, lit: 0.1, lw: 0.55 });
+        g.ellipse(-0.1, 0, 3.6, 4.1, cap, { lit: 0.22, lw: 0.6 });
+        if (g.vis()) {
+          for (let i = 0; i < 4; i++) { const a = i * PI / 4 + 0.2; g.line(-0.1 - Math.cos(a) * 3.2, -Math.sin(a) * 3.7, -0.1 + Math.cos(a) * 3.2, Math.sin(a) * 3.7, 'rgba(40,34,24,0.3)', 0.5, { cap: 'butt' }); }
+          g.circle(-0.1, 0, 0.9, A.shade(cap, -0.4), A.FLAT);
         }
       },
     },
@@ -568,8 +706,9 @@
         cabPickup(g, s, 1, 13.5, 6.6, pal.drab);
         g.rect(-0.4, -7.2, 1.8, 14.4, '#4a505c', { r: 0.6, lit: 0.18, lw: 0.5 });             // roll bar
         g.lamp(0.5, -4, SODIUM, { r: 0.6, reach: 3, a: 0.5 }); g.lamp(0.5, 4, SODIUM, { r: 0.6, reach: 3, a: 0.5 });
-        if (g.vis()) { g.line(-12.5, -5.6, -21, -8.6, '#141619', 0.9); g.line(-12.5, -5.6, -21, -8.6, '#9aa3b5', 0.5); }
-        g.circle(-12.5, -5.6, 0.9, '#2a2e36', { lw: 0.3 });
+        if (g.vis()) { g.line(-12.5, -5.6, -18.4, -7.8, '#141619', 1.5); g.line(-12.5, -5.6, -18.4, -7.8, '#c3cad6', 0.8); }   // whip antenna ...
+        g.poly([-18.6, -7.9, -22.4, -7.2, -19.6, -10.6], s.team, { lit: 0.1, bevel: 0, lw: 0.45 });   // ... flying a team pennant
+        g.circle(-12.5, -5.6, 1.1, '#59616f', { lw: 0.35 });
       },
       top: function (g, s) {
         for (let i = 0; i < 4; i++) g.barrel(2.5, -3.3 + i * 2.2, 8.5, 1.3, '#aeb7c6');
@@ -581,7 +720,7 @@
 
     // ---- Hydrant: long fire engine — ladder rack on the roof, water cannon, hose reel, team side stripes
     hydrant: {
-      frames: 3, pivot: [6, 2.6], muzzle: [[11, 0]], recoil: 0.4, flash: NOFLASH,
+      frames: 3, pivot: [6, 2.6], muzzle: [[11.6, 0]], recoil: 0.4, flash: NOFLASH,
       body: function (g, s) {
         const pal = s.pal, red = A.shade(pal.engine, -0.4);
         wheels(g, [12, -6, -12.5], 14.2, 6, 3.3, s.walk);
@@ -601,10 +740,13 @@
         g.circle(-14, 3.6, 1, '#20242d', A.FLAT);
       },
       top: function (g, s) {
-        g.circle(0, 0, 2.6, '#5d6472', { lit: 0.16, lw: 0.5 });
-        g.poly([1, -1.4, 9.5, -0.8, 9.5, 0.8, 1, 1.4], BRASS, { lit: 0.25, lw: 0.5 });
-        g.rect(9.2, -1.3, 1.6, 2.6, '#8a6a30', { r: 0.4, lw: 0.4 });
-        g.rect(-2.4, -1.2, 2.4, 2.4, s.team, { r: 0.4, lit: 0.12, lw: 0.4 });
+        g.rect(-4.4, -3.4, 1.8, 6.8, s.team, { r: 0.7, lit: 0.14, lw: 0.45 });                    // the monitor's handle bar
+        g.rect(-3.4, -0.8, 3, 1.6, '#59606e', A.FLAT);
+        g.poly([0.5, -1.9, 7.6, -1.5, 7.6, 1.5, 0.5, 1.9], '#aab3c2', { lit: 0.22, lw: 0.55 });   // water cannon barrel
+        g.poly([7.2, -1.7, 11.4, -2.6, 11.4, 2.6, 7.2, 1.7], BRASS, { lit: 0.25, lw: 0.55 });     // flared brass nozzle
+        g.rect(10.6, -1.5, 1, 3, '#3a2c14', A.FLAT);
+        g.circle(0, 0, 3, '#5d6472', { lit: 0.18, lw: 0.55 });                                // swivel
+        g.circle(0, 0, 1.4, BRASS, { lit: 0.2, lw: 0.35 });
       },
     },
 
@@ -631,86 +773,116 @@
       },
     },
 
-    // ---- Mailman: flatbed with a fat mortar tube on a baseplate, ammo racks; braced: outriggers down
+    // ---- Mailman: mortar flatbed. DRIVING: slim truck, the fat tube lashed flat along the bed, sides up (team rails).
+    // SET UP (s.deployed): four outriggers splayed, the drop-sides folded out flat (wide team panels), the tube
+    // raised on its baseplate so you look straight down the bore.
     mailman: {
-      frames: 3, kick: 0.6, muzzle: [[0.5, 0]],
+      frames: 3, kick: 0.6, muzzle: [[-3.6, 0]],
       body: function (g, s) {
-        const pal = s.pal, dep = s.deployed;
+        const pal = s.pal, dep = s.deployed, TUBE = '#9da6b5';
         if (dep) {
-          for (const X of [8, -11]) for (let sd = -1; sd <= 1; sd += 2) {
-            g.rect(X - 0.8, sd > 0 ? 6 : -10.4, 1.6, 4.4, '#59616f', { lit: 0.1, lw: 0.4 });
-            g.rect(X - 2, sd * 10.4 - 1.3, 4, 2.6, pal.steel, { r: 0.5, lit: 0.14, lw: 0.45 });
+          for (const X of [0.4, -13.2]) for (let sd = -1; sd <= 1; sd += 2) {
+            g.rect(X - 1, sd > 0 ? 6 : -13, 2, 7, '#7d8696', { lit: 0.1, lw: 0.45 });
+            g.rect(X - 2.6, sd * 13.4 - 1.7, 5.2, 3.4, '#aab3c2', { r: 0.6, lit: 0.18, lw: 0.5 });
           }
         }
         wheels(g, [10, -3.5, -10.5], 14, 5.6, 3.3, s.walk);
         g.rect(-15.5, -7, 18, 14, '#4c535f', { r: 0.8, lit: 0.12 });
         g.panels(-15.5, -7, 18, 14, 3, 1, 'rgba(0,0,0,0.3)', 0.5);
         for (let sd = -1; sd <= 1; sd += 2) {
-          g.rect(-15, sd > 0 ? 3.8 : -6.6, 8.6, 2.8, pal.drabDark, { r: 0.4, lw: 0.4 });
-          if (g.vis()) for (let i = 0; i < 5; i++) g.circle(-14 + i * 1.7, sd * 5.2, 0.65, BRASS, A.FLAT);
+          if (dep) {                                                                       // drop-side folded out flat
+            g.rect(-13.4, sd > 0 ? 6.6 : -10.4, 11.4, 3.8, s.team, { r: 0.5, lit: 0.14, lw: 0.5 });
+            if (g.vis()) g.line(-13.2, sd * 7, -2.2, sd * 7, 'rgba(0,0,0,0.4)', 0.6, { cap: 'butt' });
+          } else g.rect(-15.3, sd > 0 ? 4.6 : -7, 17.6, 2.4, s.team, { r: 0.3, lit: 0.1, lw: 0.4 });
         }
-        g.rect(-15.5, -7, 1.6, 14, s.team, { lit: 0.12, lw: 0.4 });
-        g.rect(-15.3, -7, 17.6, 1.5, s.team, { r: 0.3, lit: 0.1, lw: 0.35 }); g.rect(-15.3, 5.5, 17.6, 1.5, s.team, { r: 0.3, lit: 0.1, lw: 0.35 });
+        g.rect(-15.6, -7, 2.2, 14, s.team, { r: 0.3, lit: 0.12, lw: 0.4 });                      // tail board
         cabPickup(g, s, 2.5, 15.5, 7, pal.drab);
-        g.rect(-14, -4.2, 9.5, 8.4, '#5a606c', { r: 1, lit: 0.18, lw: 0.6 });                  // baseplate
-        if (g.vis()) { g.line(-3.5, -3, -5, -6.4, '#8a93a4', 1); g.line(-3.5, 3, -5, 6.4, '#8a93a4', 1); }
-        g.rect(-13, -3.3, 12.5, 6.6, '#8d96a6', { r: 2, lit: 0.28, lw: 0.6 });                // the fat tube, raised
-        g.rect(-8.5, -3.3, 1.8, 6.6, s.team, { lit: 0.1, bevel: 0.4, lw: 0.35 });
-        g.circle(0, 0, 3.5, '#5d6472', { lit: 0.2, lw: 0.55 });
-        g.circle(0, 0, 2.3, '#0b0c10', { lit: 0, bevel: -0.6, ol: false });
+        g.rect(10.6, -5.6, 2.6, 11.2, s.team, { r: 0.4, lit: 0.12, lw: 0.4 });                    // bonnet band
+        if (dep) {
+          for (let sd = -1; sd <= 1; sd += 2) {                                               // rounds laid out by the tail
+            g.rect(-13, sd * 4.6 - 1.5, 4.6, 3, pal.canvas, { r: 0.4, lit: 0.1, lw: 0.4 });
+            if (g.vis()) for (let i = 0; i < 3; i++) g.circle(-12 + i * 1.4, sd * 4.6, 0.6, BRASS, A.FLAT);
+          }
+          g.poly(ngon(-7.6, 0, 4.8, 8, PI / 8), '#5a606c', { lit: 0.18, lw: 0.6 });               // baseplate
+          if (g.vis()) { g.line(-3.6, 0, -0.4, -3.8, '#c3cad6', 1); g.line(-3.6, 0, -0.4, 3.8, '#c3cad6', 1); }   // bipod
+          g.capsule(-7.8, 0, -4, 0, 3.2, TUBE, { lit: 0.25, lw: 0.6 });                        // the tube, raised
+          g.rect(-7.6, -3.2, 1.7, 6.4, s.team, { lit: 0.1, bevel: 0.4, lw: 0.3 });
+          g.circle(-3.6, 0, 3.5, '#c3cad6', { lit: 0.2, lw: 0.55 });                           // muzzle, bore up
+          g.circle(-3.6, 0, 2.2, '#0b0c10', { lit: 0, bevel: -0.6, ol: false });
+        } else {
+          g.rect(-0.6, -3.8, 2.6, 7.6, '#5a606c', { r: 0.6, lit: 0.16, lw: 0.5 });                // baseplate, folded behind the cab
+          g.rect(-14.4, -2.8, 14.4, 5.6, TUBE, { r: 2.2, lit: 0.26, lw: 0.6 });                // the tube, lashed flat
+          g.rect(-14.8, -3.1, 2, 6.2, '#5d6472', { r: 0.6, lw: 0.45 });                         // muzzle cap
+          g.rect(-9.8, -2.8, 2.2, 5.6, s.team, { lit: 0.1, bevel: 0.4, lw: 0.3 });
+          if (g.vis()) { g.rect(-5.4, -2.8, 1, 5.6, 'rgba(0,0,0,0.3)', A.FLAT); g.rect(-3.2, -2.8, 1, 5.6, 'rgba(0,0,0,0.3)', A.FLAT); }
+        }
       },
     },
 
-    // ---- Pigeon: small quad racing drone, X frame, four rotor blurs, a charge strapped under it, tail light
+    // ---- Pigeon: a one-way racing drone. What you see is the CHARGE: a fat hazard-striped cylinder slung fore and
+    // aft with a contact fuse on its nose; a small team hub, four big rotor blurs, a team tail plate. Live: a blinking
+    // red tail light and a faint warm running light (a flight of them is a swarm of embers).
     pigeon: {
-      frames: 3, fps: 24, height: 22, flash: NOFLASH, muzzle: [[3, 0]],
+      frames: 3, fps: 24, height: 22, flash: NOFLASH, muzzle: [[11, 0]],
       body: function (g, s) {
-        const c = g.ctx, R = 4.2, sp = s.walk * PI;
-        g.rect(-6, -3.4, 10, 6.8, s.pal.drab, { r: 0.8, lit: 0.12, lw: 0.5 });              // the charge
-        g.hazard(-5.4, -3.4, 1.8, 6.8, { a: s.pal.hazard, step: 1.6 });
-        if (g.vis()) { g.line(-1, -3.4, 2.5, -1.2, '#d84a3a', 0.5); g.line(-1, 3.4, 2.5, 1.2, '#3a7ad8', 0.5); }
-        for (let i = 0; i < 4; i++) {
-          const a = PI / 4 + i * PI / 2, hx = Math.cos(a) * 7.4, hy = Math.sin(a) * 7.4;
-          g.line(0, 0, hx, hy, '#15181f', 2.6, { cap: 'butt' }); g.line(0, 0, hx, hy, '#5d6472', 1.4, { cap: 'butt' });
+        const c = g.ctx, R = 5.1, MX = 6.6, MY = 8.9, sp = s.walk * PI;
+        for (let i = 0; i < 4; i++) {                                                        // H frame: the rotors stand clear of the charge
+          const hx = i < 2 ? MX : -MX, hy = i % 2 ? MY : -MY;
+          g.line(hx * 0.3, 0, hx, hy, '#15181f', 3, { cap: 'butt' }); g.line(hx * 0.3, 0, hx, hy, '#7d8696', 1.6, { cap: 'butt' });
         }
+        g.rect(-12.2, -4.2, 2.6, 8.4, s.team, { r: 0.6, lit: 0.14, lw: 0.5 });                  // tail plate
+        const ch = g.rect(-10.4, -3.6, 20.8, 7.2, s.pal.hazard, { r: 3.4, lit: 0.14, lw: 0.65 });   // THE CHARGE
+        g.stripes(ch, [null, '#1b1d22'], 2.6, 0.5);
+        g.rect(9.8, -1.6, 3, 3.2, '#cfd4dc', { r: 0.6, lit: 0.2, lw: 0.5 });                    // contact fuse
         for (let i = 0; i < 4; i++) {
-          const a = PI / 4 + i * PI / 2, hx = Math.cos(a) * 7.4, hy = Math.sin(a) * 7.4, b = sp + i * 0.9;
-          g.circle(hx, hy, R, '#bcd4ff', { alpha: 0.2, lit: 0, bevel: 0, ol: '#eaf2ff', lw: 0.3, outer: false });
-          if (g.vis()) { c.strokeStyle = 'rgba(236,243,255,0.6)'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(hx - Math.cos(b) * R * 0.9, hy - Math.sin(b) * R * 0.9); c.lineTo(hx + Math.cos(b) * R * 0.9, hy + Math.sin(b) * R * 0.9); c.stroke(); }
-          g.circle(hx, hy, 1.3, s.team, { lit: 0.1, lw: 0.4 });
+          const hx = i < 2 ? MX : -MX, hy = i % 2 ? MY : -MY, b = sp + i * 0.9;
+          g.circle(hx, hy, R, '#cfe0ff', { alpha: 0.3, lit: 0, bevel: 0, ol: '#eef4ff', lw: 0.35, outer: false });
+          if (g.vis()) { c.strokeStyle = 'rgba(240,246,255,0.7)'; c.lineWidth = 1; c.lineCap = 'round'; c.beginPath(); c.moveTo(hx - Math.cos(b) * R * 0.9, hy - Math.sin(b) * R * 0.9); c.lineTo(hx + Math.cos(b) * R * 0.9, hy + Math.sin(b) * R * 0.9); c.stroke(); }
+          g.circle(hx, hy, 1.9, s.team, { lit: 0.14, lw: 0.45 });
         }
-        g.rect(-3, -2.2, 7.5, 4.4, s.team, { r: 1.2, lit: 0.2, lw: 0.5 });
-        g.rect(3, -1.2, 2, 2.4, '#1a2230', { r: 0.6, lw: 0.4 });
-        g.led(-4.2, 0, '#ff4040', 0.6);
+        g.rect(-2.8, -4.4, 5.6, 8.8, s.team, { r: 1.3, lit: 0.2, lw: 0.6 });                    // hub strapped over the charge
+        g.rect(0.4, -1.4, 1.9, 2.8, '#1a2230', { r: 0.6, lw: 0.35 });                           // camera
+        g.circle(-12.6, 0, 1, '#7a1f1c', { lit: 0, bevel: 0, lw: 0.35 });                       // tail lamp (lit live)
+      },
+      lights: function (g, s) {
+        g.puff(8.5, 0, 7.5, BEAM, 0.26);                                                   // warm running light under the nose
+        if ((s.t * 1.9 + s.seed * 0.37) % 1 < 0.4) { g.puff(-12.6, 0, 5, '#ff3626', 0.95); g.puff(-12.6, 0, 1.6, '#ffd0c8', 1); }
       },
     },
 
-    // ---- Monument: BIG memorial tank — wide tracks, angular turret, patina panels, team paint, plinth plate
+    // ---- Monument: BIG memorial tank — wide tracks, angular turret, statue BRONZE (brown, with only thin verdigris
+    // runs in the seams), fresh team paint slashed across it, the broken plinth slab still bolted to the rear deck
     monument: {
       frames: 3, pivot: [1, 0], muzzle: [[27, 0]], recoil: 2.4,
       body: function (g, s) {
-        const pal = s.pal, BRONZE = '#5e6040', PATINA = '#71907c';
+        const pal = s.pal, BRONZE = '#7d5c38';
         g.tracks(40, 21, 6.4, s.walk, { col: '#2e3139' });
-        g.hull(37, 22, BRONZE, { nose: 4, tail: 2.5, nw: 0.74, lit: 0.16 });
-        for (const q of [[5, -9.6, 8, 3.6], [-6, 6, 8, 3.6]]) g.rect(q[0], q[1], q[2], q[3], PATINA, { r: 0.8, lit: 0.1, bevel: 0.4, lw: 0.35 });
-        for (let sd = -1; sd <= 1; sd += 2) for (let i = 0; i < 2; i++) g.capsule(-6 + i * 8, sd * 7.4, -2 + i * 8, sd * 10.2, 1.1, s.team, { lit: 0.1, lw: 0.4 });
-        g.rect(15.5, -6.5, 2.2, 13, s.team, { r: 0.4, lit: 0.12, lw: 0.45 });
+        g.hull(37, 22, BRONZE, { nose: 4, tail: 2.5, nw: 0.74, lit: 0.18 });
+        if (g.vis()) {                                                                     // verdigris weeping from the seams
+          for (const q of [[6, -10, 9, -7.2], [10.5, -10, 12, -8], [-4, 10, -1.5, 7.4], [2, 10, 3, 8.2], [13, 5, 15, 7.5]]) g.line(q[0], q[1], q[2], q[3], VERDI, 0.8);
+          g.line(4, -8.6, 13, -8.6, 'rgba(0,0,0,0.3)', 0.5); g.line(-8, 8.6, 6, 8.6, 'rgba(0,0,0,0.3)', 0.5);
+        }
+        for (let sd = -1; sd <= 1; sd += 2) for (let i = 0; i < 2; i++) g.capsule(-6 + i * 8, sd * 7.2, -1.6 + i * 8, sd * 10.4, 1.3, s.team, { lit: 0.1, lw: 0.4 });
+        g.rect(15.3, -6.6, 2.6, 13.2, s.team, { r: 0.4, lit: 0.12, lw: 0.45 });
         // broken plinth plate on the rear deck
-        g.poly([-18.4, -7.5, -10, -7.5, -11.2, -3, -9.6, 0.6, -11.6, 4.2, -10.4, 7.5, -18.4, 7.5], '#9ba0a8', { lit: 0.14, lw: 0.55 });
+        g.poly([-18.4, -7.5, -10, -7.5, -11.2, -3, -9.6, 0.6, -11.6, 4.2, -10.4, 7.5, -18.4, 7.5], pal.concrete, { lit: 0.14, lw: 0.55 });
         stencil(g, -17.2, -4.5, 5, 9, 'rgba(40,42,48,0.65)', 21);
         if (g.vis()) for (const q of [[-17.6, -6.6], [-17.6, 6.6], [-11, -6.6], [-11.2, 6.6]]) g.circle(q[0], q[1], 0.6, '#2a2e36', A.FLAT);
         g.vent(-8.5, -4, 3.5, 8, { v: true, step: 1.3 });
       },
       top: function (g, s) {
-        const BRONZE = '#62664a', PATINA = '#71907c';
-        g.barrel(8, 0, 19, 3.8, '#858d9c', { brake: true, sleeve: 5 });
+        const BRONZE = '#8a673f';
+        g.barrel(8, 0, 19, 3.8, '#8c7a60', { brake: true, sleeve: 5 });
         g.barrel(8, 4.2, 4, 1.2, '#4a505c');
-        g.poly([-10, -7.4, 3.5, -8.6, 9.5, -4.6, 9.5, 4.6, 3.5, 8.6, -10, 7.4, -12, 3.6, -12, -3.6], BRONZE, { r: 1, lit: 0.2 });
-        g.rect(0, -7.6, 6, 3.4, PATINA, { r: 0.8, lit: 0.1, lw: 0.35 }); g.rect(-8.5, 3.4, 5.5, 3.4, PATINA, { r: 0.8, lit: 0.1, lw: 0.35 });
-        g.capsule(-9, -5.6, 2, 6.2, 1.5, s.team, { lit: 0.12, lw: 0.4 });
-        g.capsule(-4, -6.6, 6, 3.8, 1.3, s.team, { lit: 0.12, lw: 0.4 });
-        g.hatch(-6, -2.5, 2.6, '#4c503a');
-        g.circle(3, 3.5, 1.6, '#3c4030', { lw: 0.4 });
+        g.poly([-10, -7.4, 3.5, -8.6, 9.5, -4.6, 9.5, 4.6, 3.5, 8.6, -10, 7.4, -12, 3.6, -12, -3.6], BRONZE, { r: 1, lit: 0.22 });
+        if (g.vis()) {
+          for (const q of [[1, -8, 3.5, -5.6], [5.5, -7, 6.6, -5], [-8, 7, -6.5, 4.6], [7.5, 3.4, 8.8, 5]]) g.line(q[0], q[1], q[2], q[3], VERDI, 0.8);
+          g.lines([-9.6, -4.8, 2.6, -6.2, 7, -3], 'rgba(255,225,170,0.22)', 0.6);                    // polished edge, catching the light
+        }
+        g.capsule(-9, -5.6, 2, 6.2, 1.6, s.team, { lit: 0.12, lw: 0.4 });
+        g.capsule(-4, -6.6, 6, 3.8, 1.4, s.team, { lit: 0.12, lw: 0.4 });
+        g.hatch(-6, -2.5, 2.6, '#6a4e30');
+        g.circle(3, 3.5, 1.6, '#5a4228', { lw: 0.4 });
       },
     },
   });

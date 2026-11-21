@@ -2,11 +2,14 @@
 // NEON TURF — art for PITFANG / 獠牙帮 (presentation; needs js/art.js).
 // A prize-fight circuit that outgrew its basements. Shape language: ORGANIC — ovals, wedges, teeth, rings and
 // octagons at odd angles, no clean right angles. Materials: oxblood hide, bone, bruise purple, rust, ragged tarp,
-// chain-link. Team colour lives on wraps, tarps, painted rings and ropes, banners and collars. The rush lime
-// (palette.rush) is a STATE CUE only: it appears in live lights() when a body is enraged (and on the Cookhouse
-// serum vats, which the brief asks for) — never baked into a sprite.
-// Gotchas: s.t is 0 in cached functions, so breathing / crows / fans / orbiting cylinders live in anim();
-// fire = 1 is the widest pose of every unit (the measure pass sizes sprites from it).
+// chain-link. Team colour lives on wraps, tarps, painted rings and ropes, banners and collars.
+// GANG SIGNATURE (every body speaks it): BONE at the business end (taped fists, tusks, horns, claws), a team RAG
+// trailing behind (bandana tails, cape, sash, coat tails, saddle rug) and THE RUSH — palette.rush lime is a STATE
+// CUE only: lime eyes, a lime vein, lime breath and a lime wake, drawn LIVE by rushMarks() / rushLights() while
+// s.boost (surge, Main Event) or an enrage is on. Never baked into a sprite (the Cookhouse serum vats excepted).
+// Gotchas: s.t is 0 in cached functions, so breathing / crows / fans / whirl trails live in anim();
+// s.fire runs 1 -> .4 -> 0 AFTER the blow lands: fire 1 = impact / full extension, .4 = recovery, the coil is the
+// idle pose; fire = 1 must be the widest pose of every unit (the measure pass sizes sprites from it).
 (function () {
   const A = NT.Art, P = A.P, PI = Math.PI, TAU = PI * 2;
   const TAPE = '#f1ece0', STEEL = '#8d98ab', IRON = '#5d6573', CHAIN = '#a3acbb', GOLD = '#e8d27c', BRASS = '#c99a46';
@@ -71,9 +74,9 @@
     for (let k = -1; k <= 1; k += 2) g.poly([cx + k * r * 0.72, cy - r * 0.4, cx + k * r * 0.12, cy - r * 0.4, cx + k * r * 0.3, cy + r * 0.9], col, { r: r * 0.08, lit: 0, bevel: 0, lw: 0.4 });
   }
   // beaded chain between two points
-  function chain(g, x0, y0, x1, y1, col) {
+  function chain(g, x0, y0, x1, y1, col, w) {
     const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(L / 1.6));
-    g.line(x0, y0, x1, y1, '#20232b', 1.3);
+    g.line(x0, y0, x1, y1, '#20232b', w || 1.3);
     if (!g.vis()) return;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
@@ -110,28 +113,135 @@
     g.pop(); g.pop();
   }
 
+  // ---- the MASS-FIRST parts of the big-bodied humans (Scrapper, Champion, Can Opener, Hammer Thrower): the
+  // torso is drawn by each unit as one solid shape; these are the pieces that hang off it. Gang language:
+  // BONE at the business end (taped fists), a team RAG trailing behind (tails, cape, sash), LIME only when rushed.
+  const RIM = '#2c1e22', BOOT = '#57454c';
+  function boots(g, s, fy, stride, r, x) {
+    const d = s.moving ? swing(s) * stride : 0;
+    for (let k = -1; k <= 1; k += 2) g.ellipse((x || 0.4) - k * d, k * fy, r * 1.5, r, BOOT, { lit: 0.1, bevel: 0.6, lw: 0.5 });
+  }
+  // a short thick arm: shoulder -> hand, tapering
+  function limb(g, x0, y0, x1, y1, r0, r1, col) { g.capsule(x0, y0, x1, y1, r0, col, { r1: r1, lit: 0.14, bevel: 0.7, lw: 0.6 }); }
+  // a taped fist: bone ball inside a dark rim (so it still reads on a white team), knuckle shadow + one tape line
+  function fist(g, x, y, r, ang) {
+    g.circle(x, y, r, TAPE, { lit: 0.18, bevel: 0.8, ol: RIM, lw: 0.75 });
+    if (!g.vis()) return;
+    const c = Math.cos(ang || 0), sn = Math.sin(ang || 0), u = r * 0.2;
+    g.line(x + c * u + sn * r * 0.8, y + sn * u - c * r * 0.8, x + c * u - sn * r * 0.8, y + sn * u + c * r * 0.8, 'rgba(70,48,46,0.6)', Math.max(0.45, r * 0.22), { cap: 'butt' });
+    g.line(x - c * r * 0.55 + sn * r * 0.6, y - sn * r * 0.55 - c * r * 0.6, x - c * r * 0.55 - sn * r * 0.6, y - sn * r * 0.55 + c * r * 0.6, 'rgba(70,48,46,0.35)', 0.4, { cap: 'butt' });
+  }
+  // a ragged tail of cloth from (x, y) trailing to (x1, y1): fishtail end
+  function rag(g, x, y, x1, y1, w, col) {
+    const dx = x1 - x, dy = y1 - y, L = Math.hypot(dx, dy) || 1, nx = -dy / L * w, ny = dx / L * w;
+    g.poly([x + nx * 0.5, y + ny * 0.5, x1 + nx, y1 + ny, x1 - dx * 0.22, y1 - dy * 0.22, x1 - nx, y1 - ny, x - nx * 0.5, y - ny * 0.5], col, { lit: 0.12, bevel: 0.5, lw: 0.5 });
+  }
+  // a short impact burst where a blow lands (live; boxers do not claw)
+  function pow(g, s, x, y, r) {
+    if (s.fire < 0.3) return;
+    const c = g.ctx, a = c.globalAlpha;
+    c.globalAlpha = a * Math.min(1, s.fire * 1.2);
+    for (let i = -1; i <= 1; i++) g.line(x + r * 0.35, y + i * r * 0.5, x + r, y + i * r * 1.15, CLAW, 0.9);
+    c.globalAlpha = a;
+  }
+
+  // ---- THE RUSH: Pitfang's signature state, one language on every organic body. While a surge / Main Event /
+  // support buff runs (s.boost) or the body is enraged: LIME EYES, a LIME VEIN crawling over the hide, a LIME
+  // BREATH over the ground ahead and a lime wake on the ground behind — so a surging mob lights up in the dark.
+  // LIVE ONLY (never baked). r = { ex, ey: eyes at (ex, +-ey) · R: body radius · vx, vy, vr: where the hide glows ·
+  // vein: polyline · sway: how far the baked body weaves sideways while walking }
+  function rushOn(s) { return s.boost || enraged(s); }
+  function swayOf(s, r) { return r.sway && s.moving ? Math.sin(s.walk * TAU) * r.sway : 0; }
+  // source-over part (call from anim): solid lime eye dots + the vein — stays lime on bone and on pale teams
+  function rushMarks(g, s, r) {
+    if (s.hinder && !s.boost) {                         // the comedown: slow grey panting, nothing else
+      const b = (s.t * 0.8 + (s.seed % 5) * 0.21) % 1;
+      g.puff(r.ex + 2.5 + b * 4, swayOf(s, r) + b * 2, 1.6 + b * 3, VAPOR, 0.3 * (1 - b));
+      return;
+    }
+    if (!rushOn(s)) return;
+    const c = g.ctx, col = s.pal.rush, oy = swayOf(s, r), e = r.es || 1.1;
+    c.fillStyle = col;
+    c.fillRect(r.ex - e / 2, oy - r.ey - e / 2, e, e); c.fillRect(r.ex - e / 2, oy + r.ey - e / 2, e, e);
+    if (r.vein) {
+      const a = c.globalAlpha;
+      c.globalAlpha = a * (0.55 + 0.4 * Math.sin(s.t * 9 + s.seed));
+      c.translate(0, oy); g.lines(r.vein, col, r.vw || 0.7); c.translate(0, -oy);
+      c.globalAlpha = a;
+    }
+  }
+  // additive part (call from lights): eye flare, a faint hide glow, breath, a wake
+  function rushLights(g, s, r) {
+    if (!rushOn(s)) return;
+    const col = s.pal.rush, p = 0.65 + 0.35 * Math.sin(s.t * 9 + s.seed), oy = swayOf(s, r), R = r.R;
+    g.puff(-R * 0.75, oy, R * 1.25, col, 0.15 + 0.06 * p);                           // a lime wake on the ground behind
+    g.puff(r.vx || 0, oy + (r.vy || 0), (r.vr || R * 0.7) * 0.7, col, 0.08 + 0.07 * p);  // the hide glows, faintly
+    g.puff(r.ex, oy - r.ey, R * 0.07 + 1.5, col, 0.8 * p); g.puff(r.ex, oy + r.ey, R * 0.07 + 1.5, col, 0.8 * p);
+    const b = (s.t * 1.5 + (s.seed % 7) * 0.31) % 1;
+    g.puff(r.ex + R * 0.3 + b * R * 0.9, oy, 1.5 + b * R * 0.45, col, 0.4 * (1 - b)); // breath
+  }
+
   // a leg of a beast: capsule hip -> paw with a hoof / paw blob
   function leg(g, x0, y0, x1, y1, w, col, foot) {
     g.capsule(x0, y0, x1, y1, w, col, { r1: w * 0.8, lit: 0.08, bevel: 0.6, lw: 0.55 });
     g.ellipse(x1, y1, w * 1.05, w * 0.9, foot || A.shade(col, -0.35), { lit: 0.1, lw: 0.45 });
   }
-  // the lean chained fighting dog (Chain Post top): teardrop body with legs, facing +x from the stake
-  function leanDog(g, s, lunge) {
-    const fur = '#6b5a52', dk = A.shade(fur, -0.3), x = lunge ? 2 : 0;
-    g.push(x, 0);
-    const fx = lunge ? 3.4 : 1.6;
-    leg(g, 9.5, -1.8, 10.5 + fx, -4.2, 0.95, dk); leg(g, 9.5, 1.8, 10.5 + fx, 4.2, 0.95, dk);
-    leg(g, 3.4, -1.7, 2.2 - (lunge ? 1.6 : 0), -4.3, 0.95, dk); leg(g, 3.4, 1.7, 2.2 - (lunge ? 1.6 : 0), 4.3, 0.95, dk);
-    g.capsule(2.4, 0, -1.4, lunge ? 0.6 : -1.2, 0.7, dk, { r1: 0.4, lw: 0.4 });
-    g.blob([1.6, 0, 2.6, -2.4, 7, -3.2, 10.6, -2.6, 12, 0, 10.6, 2.6, 7, 3.2, 2.6, 2.4], fur, { lit: 0.18 });
-    if (g.vis()) for (let i = 0; i < 3; i++) g.line(5.2 + i * 1.5, -2.1, 5.6 + i * 1.5, 2.1, 'rgba(233,226,207,0.35)', 0.45);
-    g.rect(4.4, -1.5, 3.2, 3, s.team, { r: 1, lit: 0.14, lw: 0.4 });           // harness pad
-    g.rect(10.2, -2.2, 1.4, 4.4, s.team, { r: 0.6, lit: 0.12, lw: 0.4 });       // collar
-    for (let k = -1; k <= 1; k += 2) g.poly([12.2, k * 1.6, 11, k * 3.4, 13.2, k * 2.2], dk, { lw: 0.35, lit: 0.1 });
-    g.capsule(12.2, 0, 15.6, 0, 1.9, A.shade(fur, 0.08), { r1: 1.1, lit: 0.18 });
-    g.circle(16.2, 0, 0.6, '#1b1416', A.FLAT);
-    if (lunge) for (let k = -1; k <= 1; k += 2) g.poly([15, k * 0.6, 16.8, k * 1.4, 15.4, k * 1.4], s.pal.bone, { lw: 0.3, lit: 0, bevel: 0 });
+  // a ridge of bristles along the spine from x0 to x1: a sawtooth leaf, hw wide at the middle
+  function crest(g, x0, x1, hw, col) {
+    const n = Math.max(3, Math.round((x1 - x0) / 1.7)), up = [], dn = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, x = x0 + (x1 - x0) * t, w = hw * (0.35 + 0.65 * Math.sin(t * PI)) * (i % 2 ? 1 : 0.62);
+      up.push(x, -w); dn.unshift(x, w);
+    }
+    g.poly(up.concat(dn), col, { lit: 0.16, bevel: 0.6, lw: 0.5 });
+  }
+  // the chained fighting dog (Chain Post top), origin = the stake, facing +x: a ribby mastiff STRAINING at a taut
+  // chain — hind paws dug in beside the stake, forelegs splayed, a spiked team collar, the chain along its spine
+  function chainDog(g, s, lunge) {
+    const fur = '#ab957c', dk = A.shade(fur, -0.42), x = lunge ? 1 : 0;
+    g.push(x, 0, 0, 0.84);
+    leg(g, 3.6, -2.6, lunge ? 0 : 1.2, -5.8, 1.35, dk, '#2a2022'); leg(g, 3.6, 2.6, lunge ? 0 : 1.2, 5.8, 1.35, dk, '#2a2022');
+    leg(g, 9, -3, lunge ? 13.4 : 11.8, lunge ? -4.8 : -6.2, 1.35, dk, '#2a2022'); leg(g, 9, 3, lunge ? 13.4 : 11.8, lunge ? 4.8 : 6.2, 1.35, dk, '#2a2022');
+    g.capsule(1.8, 0, -1.2, lunge ? 0.8 : -1.6, 0.9, dk, { r1: 0.5, lw: 0.5 });
+    g.blob([0.8, 0, 1.6, -3.8, 6, -3.6, 9.8, -5.2, 12.6, -3.2, 12.6, 3.2, 9.8, 5.2, 6, 3.6, 1.6, 3.8], fur, { lit: 0.24, lw: 0.8 });
+    if (g.vis()) for (let i = 0; i < 3; i++) g.line(3.4 + i * 1.5, -2.6, 3.7 + i * 1.5, 2.6, 'rgba(60,40,36,0.4)', 0.5);
+    g.poly([6.6, -3.9, 8.6, -4.6, 8.6, 4.6, 6.6, 3.9], s.team, { r: 0.6, lit: 0.18, lw: 0.6 });                 // harness band
+    chain(g, -x / 0.84, 0, 10.4, 0, CHAIN, 1.7);
+    g.poly([10.4, -3.9, 12.4, -3.5, 12.4, 3.5, 10.4, 3.9], s.team, { r: 0.7, lit: 0.18, lw: 0.65 });             // collar
+    if (g.vis()) for (let k = -1; k <= 1; k++) { g.ctx.fillStyle = s.pal.bone; g.ctx.fillRect(11, k * 2.3 - 0.5, 1, 1); }
+    for (let k = -1; k <= 1; k += 2) g.poly([13, k * 2.2, 10.8, k * 5.6, 14.4, k * 3.6], dk, { r: 0.4, lw: 0.55, lit: 0.12 });   // ears
+    g.ellipse(14, 0, 2.6, 3.1, A.shade(fur, 0.1), { lit: 0.24, lw: 0.75 });
+    g.capsule(15.2, 0, 17.4, 0, 1.9, dk, { r1: 1.4, lit: 0.16, lw: 0.65 });
+    g.circle(18.2, 0, 0.7, '#1b1416', A.FLAT);
+    g.circle(14.6, -1.9, 0.55, '#140d0f', A.FLAT); g.circle(14.6, 1.9, 0.55, '#140d0f', A.FLAT);
+    if (lunge) for (let k = -1; k <= 1; k += 2) g.poly([16.2, k * 1, 18.6, k * 2.2, 16.8, k * 2.2], s.pal.bone, { lw: 0.35, lit: 0, bevel: 0 });
     g.pop();
+  }
+  // a ragged sheet strung between four corners (clockwise quad q): edges sag inward, one edge (torn: 0..3) is ripped
+  // into teeth, creases run to the low point. Organic stand-in for the kit's neat g.tarp.
+  function ragTarp(g, q, col, seed, torn, sag) {
+    const pts = [];
+    let cx = 0, cy = 0;
+    for (let e = 0; e < 4; e++) {
+      const ax = q[e * 2], ay = q[e * 2 + 1], bx = q[(e * 2 + 2) % 8], by = q[(e * 2 + 3) % 8], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy);
+      const nx = dy / L, ny = -dx / L, rip = torn === e, n = rip ? Math.max(5, Math.round(L / 3)) : 3;
+      cx += ax / 4; cy += ay / 4;
+      for (let i = 0; i < n; i++) {
+        const t = i / n;
+        let off = -Math.sin(t * PI) * (sag || 2);
+        if (rip && i % 2) off -= 1.4 + A.hash01(seed, e * 31 + i) * 3;
+        else if (i) off += (A.hash01(seed, e * 17 + i) - 0.5) * 1.4;
+        pts.push(ax + dx * t + nx * off, ay + dy * t + ny * off);
+      }
+    }
+    g.solid(P.poly(pts, 0.5), col, { lit: 0.22 });
+    if (!g.vis()) return;
+    const lx = cx + (A.hash01(seed, 3) - 0.5) * 8, ly = cy + (A.hash01(seed, 4) - 0.3) * 6;
+    g.puff(lx, ly, 9, '#000000', 0.3);                                               // the belly of the sag
+    for (let e = 0; e < 4; e++) {
+      const ax = q[e * 2], ay = q[e * 2 + 1], ex = ax + (lx - ax) * 0.78, ey = ay + (ly - ay) * 0.78;
+      g.line(ax, ay, ex, ey, 'rgba(0,0,0,0.26)', 1); g.line(ax + 0.8, ay - 0.6, ex + 0.8, ey - 0.6, 'rgba(255,255,255,0.2)', 0.7);
+    }
   }
 
   NT.Art.define('pitfang', {
@@ -357,17 +467,22 @@
           g.circle(51.4, 45, 2.2, '#6a3a3c', { lit: 0.2, lw: 0.4 });
         });
         g.at(z, function () {
-          const tp = function (x, y, w, d, rot, col, sd) { g.push(x + w / 2, y + d / 2, rot); g.tarp(-w / 2, -d / 2, w, d, col, { seed: sd, folds: 2 }); g.pop(); };
-          tp(3, 9, 42, 33, -0.05, s.team, 11); tp(47, 7, 45, 36, 0.04, A.shade(s.team, -0.14), 17);
-          tp(4, 46, 36, 28, 0.06, A.shade(s.team, -0.26), 23); tp(56, 47, 36, 26, -0.035, A.shade(s.team, -0.08), 29);
-          tp(64, 52, 16, 12, 0.2, s.pal.tarp, 3);
-          g.poly([45, 9, 49, 8, 47.5, 14], A.shade(s.team, 0.25), { lit: 0.1, lw: 0.4 });
-          g.poly([40, 72, 44, 74, 39, 76], A.shade(s.team, 0.15), { lit: 0.1, lw: 0.4 });
-          g.blob([20, 22, 26, 19, 29, 25, 24, 29, 19, 27], '#0f0d11', { lit: 0, bevel: -0.6, lw: 0.4 });
-          if (g.vis()) {
-            for (const q of [[6, 12, 4, 10], [48, 12, 47, 8], [90, 12, 91, 8], [6, 74, 5, 73], [48, 74, 40, 73], [90, 74, 91, 72]]) g.line(q[0], q[1], q[2], q[3], 'rgba(220,210,190,0.6)', 0.5);
-            g.line(2, 44, 94, 44, '#6a6450', 1);
+          // four ragged sheets, each skewed its own way, sagging between the posts, one edge of each ripped
+          if (g.vis()) {                                                                   // guy ropes first, under the sheets
+            g.line(1, 43, 95, 41, '#6a6450', 1);
+            for (const q of [[6, 12, 3, 7], [48, 12, 45, 12], [48, 12, 51, 8], [90, 12, 94, 9], [6, 74, 4, 71], [48, 74, 42, 74], [48, 74, 58, 76], [90, 74, 93, 73]]) g.line(q[0], q[1], q[2], q[3], 'rgba(226,214,190,0.7)', 0.6);
           }
+          ragTarp(g, [1, 6, 44, 11, 46, 39, 4, 45], s.team, 11, 2, 2.2);
+          ragTarp(g, [50, 7, 95, 4, 91, 44, 49, 38], A.shade(s.team, -0.16), 17, 1, 2.6);
+          ragTarp(g, [2, 49, 39, 45, 43, 77, 5, 71], A.shade(s.team, -0.28), 23, 0, 1.8);
+          ragTarp(g, [57, 50, 94, 46, 92, 74, 60, 78], A.shade(s.team, -0.08), 29, 3, 2.4);
+          g.poly([40, 72, 43.4, 77, 37, 79.6, 38.6, 75], A.shade(s.team, -0.42), { r: 0.5, lit: 0.1, lw: 0.4 });   // a corner hanging loose
+          g.poly([91, 44, 95.4, 46.4, 92.6, 50.6], A.shade(s.team, -0.34), { r: 0.4, lit: 0.1, lw: 0.4 });
+          g.push(70, 60, 0.22); g.rect(-7.6, -5.4, 15.2, 10.8, s.pal.tarp, { r: 1.2, lit: 0.18, lw: 0.5 });       // a canvas patch, stitched on
+          if (g.vis()) for (let i = 0; i < 5; i++) { g.line(-6.6 + i * 3.2, -5.4, -5.6 + i * 3.2, -4.2, '#e6dcc4', 0.5); g.line(-6.6 + i * 3.2, 5.4, -5.6 + i * 3.2, 4.2, '#e6dcc4', 0.5); }
+          g.pop();
+          g.blob([18, 21, 25, 17, 30, 24, 25, 30, 18, 28], '#0f0d11', { lit: 0, bevel: -0.6, lw: 0.4 });           // a hole clawed through
+          g.poly([25, 30, 30, 24, 31.6, 29.6], A.shade(s.team, 0.2), { r: 0.4, lit: 0.1, lw: 0.4 });
         });
         g.pool(W / 2, r.wall.y + h + 4, 16, 6, WARM, 0.25);
         g.lamp(W / 2 - 14, r.wall.y + 2, WARM, { r: 1.1, reach: 8 }); g.lamp(W / 2 + 14, r.wall.y + 2, WARM, { r: 1.1, reach: 8 });
@@ -514,7 +629,7 @@
 
     // ---- Chain Post (defence): a stake, a worn circle painted at the chain's reach, a lean dog on the chain (top)
     chainpost: {
-      height: 10, pivot: [16, 16], recoil: -0.6, muzzle: [[15.4, 0]], flash: false,
+      height: 10, pivot: [16, 16], recoil: -0.6, muzzle: [[15.6, 0]], flash: false,
       base: function (g, s) {
         g.circle(16, 16, 15.6, '#2a2420', { lit: 0, bevel: -0.4, lw: 0.5 });
         g.circle(16, 16, 12, '#3a2f28', { lit: 0, bevel: -0.5, ol: false });
@@ -524,23 +639,19 @@
         g.at(6, function () { g.solid(P.ring(16, 16, 1.4, 2.4), CHAIN, { lit: 0.2, lw: 0.3 }); });
       },
       top: function (g, s) {
-        const f = s.fire > 0.5;
-        chain(g, 0, 0, f ? 5.6 : 4.2, 0, CHAIN);
-        g.push(1.2, 0, 0, 0.8);
-        leanDog(g, s, f);
-        g.pop();
+        chainDog(g, s, s.fire > 0.5);
       },
-      anim: function (g, s) { if (s.fire < 0.08) return; g.push(16, 16, s.aim); slash(g, s, 15, 4); g.pop(); },
-      lights: function (g, s) {
-        if (!enraged(s)) return;
-        const a = s.aim, k = 0.5 + 0.3 * Math.sin(s.t * 12);
-        g.puff(16 + Math.cos(a) * 12, 16 + Math.sin(a) * 12, 2.6, s.pal.rush, k);
+      rush: { ex: 12.3, ey: 1.6, R: 8, vx: 6, vr: 6 },
+      anim: function (g, s) {
+        if (s.fire < 0.08 && !rushOn(s)) return;
+        g.push(16, 16, s.aim); slash(g, s, 16, 4); rushMarks(g, s, this.rush); g.pop();
       },
+      lights: function (g, s) { if (!rushOn(s)) return; g.push(16, 16, s.aim); rushLights(g, s, this.rush); g.pop(); },
     },
 
     // ---- Brick Perch (defence): scaffold platform, a bruiser with a cinder block (top), a pile of blocks
     perch: {
-      height: 24, pivot: [17, 7], muzzle: [[6, 0]], flash: false, recoil: 0,
+      height: 24, pivot: [17, 6], muzzle: [[8, 0]], flash: false, recoil: -1,
       base: function (g, s) {
         const z = 12;
         slab(g, 2, 3, 28, 27);
@@ -556,12 +667,19 @@
         g.banner(6, 17, 20, 7, s.team, { tail: 1.6 });
       },
       top: function (g, s) {
-        const f = s.fire;
-        fig(g, s, {
-          sw: 5.6, td: 2.8, cloth: s.team, ar: 1.6, hr: 2.7,
-          arms: f ? [[-1, 6, -2.2, 1.6], [1, 6, 2.2, 1.6]] : [[-1, 2.6, -2.4, 1.6], [1, 2.6, 2.4, 1.6]],
-          over: function () { if (!f) { g.rect(1.6, -2.6, 4.2, 5.2, '#9aa0aa', { r: 0.4, lit: 0.2, lw: 0.5 }); g.rect(2.6, -1.6, 1.2, 1.2, '#4a4e57', A.FLAT); g.rect(2.6, 0.4, 1.2, 1.2, '#4a4e57', A.FLAT); } },
-        });
+        // a big bruiser in a team singlet, a cinder block hoisted OVER HIS HEAD in both hands; thrown on fire
+        const f = s.fire, thr = f > 0.5, rec = f > 0 && !thr, sk = s.pal.skin;
+        const HL = thr ? [8.4, -2.6] : rec ? [6, -3.6] : [1.6, -4.2], HR = thr ? [8.4, 2.6] : rec ? [6, 3.6] : [1.6, 4.2];
+        g.ellipse(-1.4, -3, 2.1, 1.5, BOOT, { lit: 0.1, lw: 0.5 }); g.ellipse(-1.4, 3, 2.1, 1.5, BOOT, { lit: 0.1, lw: 0.5 });
+        g.poly([-4.2, -3.2, -2.4, -6.8, 1.4, -7.8, 2.8, -5.6, 2.2, 0, 2.8, 5.6, 1.4, 7.8, -2.4, 6.8, -4.2, 3.2], s.team, { r: 1.8, lit: 0.22, lw: 0.8 });
+        limb(g, 0.8, -6.6, HL[0], HL[1], 2.4, 1.9, sk); limb(g, 0.8, 6.6, HR[0], HR[1], 2.4, 1.9, sk);
+        g.circle(1.2, 0, 2.8, sk, { lit: 0.26, lw: 0.75, ol: RIM });
+        hairCap(g, 1.2, 2.8, '#33262a');
+        if (!f) {
+          g.rect(-1.2, -4.4, 5.6, 8.8, '#b4bac4', { r: 0.5, lit: 0.26, lw: 0.8, ol: '#23262d' });
+          g.rect(0.3, -3, 2.6, 2.3, '#4a4e57', { lit: 0, bevel: -0.8, ol: false }); g.rect(0.3, 0.7, 2.6, 2.3, '#4a4e57', { lit: 0, bevel: -0.8, ol: false });
+        }
+        fist(g, HL[0], HL[1] - (f ? 0 : 0.6), 2, PI / 2); fist(g, HR[0], HR[1] + (f ? 0 : 0.6), 2, PI / 2);
       },
     },
 
@@ -597,68 +715,99 @@
     },
 
     // ======================================================================= UNITS
-    // ---- Gorge Hog: car-sized boar, bristle ridge, tusks, pannier cages on both flanks filling with Glint
+    // ---- Gorge Hog: BOAR first, cargo second. A big wedge head with a snout disc and curved tusks, a bristle crest
+    // over the shoulders, heavy round haunches, short trotting legs. The load rides in two round wicker saddle
+    // baskets hanging from a team saddle blanket; they fill with Glint by s.cargo and sparkle when full.
     hog: {
-      frames: 6, height: 3.2, flash: false, muzzle: [[16.4, 0]],
+      frames: 6, height: 3.2, flash: false, muzzle: [[18.5, 0]],
       body: function (g, s) {
-        const ph = s.walk * TAU, mv = s.moving, cg = s.cargo, hide = '#7a665c', dk = A.shade(hide, -0.4);
-        g.push(0, 0, 0, 0.9);
+        const ph = s.walk * TAU, mv = s.moving, cg = s.cargo, hide = '#806a5e', dk = A.shade(hide, -0.36), jig = mv ? Math.sin(ph * 2) * 0.45 : 0;
+        g.push(0, 0, 0, 0.92);
         for (let i = 0; i < 4; i++) {
-          const front = i < 2, side = i % 2 ? 1 : -1, sw = mv ? Math.sin(ph + ((front ? side > 0 : side < 0) ? PI : 0)) * 2.4 : 0, bx = front ? 7 : -9;
-          leg(g, bx, side * 6, bx + sw, side * 9.8, 1.7, dk, '#241c1e');
+          const front = i < 2, side = i % 2 ? 1 : -1, sw = mv ? Math.sin(ph + ((front ? side > 0 : side < 0) ? PI : 0)) * 2.6 : 0, bx = front ? 6.6 : -10.4;
+          leg(g, bx, side * 5.4, bx + sw + (front ? 1 : -0.6), side * (front ? 8.4 : 9.6), 1.9, dk, '#2a2022');
         }
-        if (g.vis()) { const p = new Path2D(); p.arc(-16.6, 0, 1.5, -0.5, PI * 1.4); g.stroke(p, dk, 1); }
-        g.blob([-17, 0, -16, -8.6, -6, -10.2, 4, -9.8, 10.5, -7, 12.5, 0, 10.5, 7, 4, 9.8, -6, 10.2, -16, 8.6], hide, { lit: 0.22 });
-        // bristle mane along the spine
-        const br = [];
-        for (let i = 0; i <= 12; i++) br.push(-13 + i * 1.9, i % 2 ? -2.6 : -0.8);
-        for (let i = 12; i >= 0; i--) br.push(-13 + i * 1.9, i % 2 ? 2.6 : 0.8);
-        g.poly(br, '#3a2c2c', { lit: 0.12, lw: 0.4 });
-        // panniers: chain-link cages on the flanks, team frames, Glint heaped by cargo
+        if (g.vis()) { const p = new Path2D(); p.arc(-17.6, 0.4, 1.5, -0.4, PI * 1.5); g.stroke(p, '#241a1c', 1.9); g.stroke(p, dk, 1.1); }
+        // the body: round haunches, a waist, humped shoulders
+        g.blob([-19, 0, -18, -9, -9.4, -11, -2, -8.4, 5.6, -11.2, 12, -8.2, 13, 0, 12, 8.2, 5.6, 11.2, -2, 8.4, -9.4, 11, -18, 9], hide, { lit: 0.26, lw: 0.9 });
+        g.ellipse(-10.6, 0, 4.4, 5.8, A.shade(hide, 0.1), { lit: 0.14, bevel: 0.4, ol: false });
+        crest(g, -17, -9.6, 1.9, '#43322f');
+        // saddle blanket (team): an oval rug over the waist with a stripe and a fringe
+        const rug = P.ellipse(-3.4, 0, 6.6, 9.3);
+        g.solid(rug, s.team, { lit: 0.24, lw: 0.8 });
+        if (g.vis()) {
+          g.stroke(P.ellipse(-3.4, 0, 4.6, 7.4), s.teamHi, 0.9);
+          g.line(-3.4, -6.6, -3.4, 6.6, A.alpha(s.teamDk, 0.6), 0.9);
+        }
+        // the two saddle baskets, hung on straps: round wicker, Glint heaped inside by cargo
         for (let k = -1; k <= 1; k += 2) {
-          const y0 = k < 0 ? -13.6 : 6.8, p = P.rect(-10.5, y0, 13.5, 6.8, 2.8);
-          g.solid(p, '#17141a', { lit: 0, bevel: -0.5, lw: 0.5 });
-          const n = Math.round(cg * 6);
+          const by = k * (10.4 + jig), p = P.ellipse(-3.4, by, 4.6, 3.5), n = Math.round(cg * 4);
+          g.solid(p, '#2b241f', { lit: 0, bevel: -0.7, lw: 0.9, ol: '#2a1e16' });
           for (let i = 0; i < n; i++) {
-            const X = -8.8 + (i % 3) * 4.1, Y = y0 + 1.4 + ((i < 3) === (k < 0) ? 3.1 : 0);
-            g.poly([X, Y, X + 1.9, Y - 0.6, X + 2.9, Y + 0.9, X + 1.4, Y + 2.2, X - 0.2, Y + 1.4], s.pal.glint, { lit: 0.3, lw: 0.35 });
+            const X = -5.9 + i * 1.7, Y = by + ((i % 2) - 0.5) * 1.6 * k;
+            g.poly([X - 1.3, Y + 0.2, X - 0.3, Y - 1.3, X + 1.2, Y - 0.6, X + 1.4, Y + 0.8, X, Y + 1.4], s.pal.glint, { lit: 0.3, lw: 0.35, ol: '#4a8a86' });
           }
-          g.mesh(p, { step: 1.8, col: 'rgba(200,208,224,0.4)', lw: 0.4 });
-          g.stroke(p, s.teamDk, 2); g.stroke(p, s.team, 1.2);
+          g.mesh(p, { step: 1.7, col: 'rgba(222,200,150,0.5)', lw: 0.45 });
+          g.stroke(p, '#5e4a30', 1.9); g.stroke(p, '#cdb682', 1);
+          g.line(-5.4, k * 6.6, -5.4, by - k * 3, '#3a2a22', 1.1); g.line(-1.4, k * 6.6, -1.4, by - k * 3, '#3a2a22', 1.1);
         }
-        g.rect(-6.6, -7.4, 2.6, 14.8, s.team, { r: 0.8, lit: 0.12, bevel: 0.4, lw: 0.4 });
-        g.rect(-0.6, -7.8, 2.6, 15.6, s.team, { r: 0.8, lit: 0.12, bevel: 0.4, lw: 0.4 });
-        // head: floppy ears, wedge head, snout disc, big tusks
-        for (let k = -1; k <= 1; k += 2) g.ellipse(10.2, k * 5, 2.8, 1.6, dk, { rot: k * 0.75, lw: 0.4, lit: 0.1 });
-        g.capsule(9.6, 0, 15.8, 0, 5.3, A.shade(hide, 0.06), { r1: 3.8, lit: 0.22 });
-        g.ellipse(18, 0, 1.9, 3, '#9a8478', { lw: 0.45, lit: 0.12 });
-        if (g.vis()) { g.ctx.fillStyle = '#2a1e1e'; g.ctx.fillRect(18.2, -1.5, 0.9, 0.9); g.ctx.fillRect(18.2, 0.6, 0.9, 0.9); }
-        for (let k = -1; k <= 1; k += 2) g.capsule(16, k * 2.8, 19.4, k * 6, 1.35, s.pal.bone, { r1: 0.45, lw: 0.45, lit: 0.22 });
-        g.circle(13, -2.8, 0.6, '#120c0e', A.FLAT); g.circle(13, 2.8, 0.6, '#120c0e', A.FLAT);
+        // the head: ears, big wedge, bristle crest running back over the shoulders, snout disc, tusks
+        for (let k = -1; k <= 1; k += 2) g.poly([9.4, k * 4.4, 5, k * 9.4, 11.8, k * 7.6], dk, { r: 0.5, lw: 0.65, lit: 0.14 });
+        g.poly([6.6, -7.2, 13, -6.4, 18, -3.8, 19.8, 0, 18, 3.8, 13, 6.4, 6.6, 7.2], A.shade(hide, 0.14), { r: 2, lit: 0.26, lw: 0.9 });
+        crest(g, 2.6, 15.4, 2.5, '#43322f');
+        for (let k = -1; k <= 1; k += 2) {
+          g.capsule(16, k * 3.5, 19, k * 6.8, 1.7, s.pal.bone, { r1: 1.2, lw: 0.65, lit: 0.26 });
+          g.capsule(19, k * 6.8, 22, k * 7.6, 1.2, s.pal.bone, { r1: 0.35, lw: 0.65, lit: 0.26 });
+          g.circle(13, k * 4, 0.8, '#140d0f', A.FLAT);
+        }
+        g.ellipse(19.8, 0, 1.8, 3, '#b99488', { lw: 0.65, lit: 0.14 });
+        if (g.vis()) { g.ctx.fillStyle = '#3a2424'; g.ctx.fillRect(19.7, -1.6, 0.9, 0.9); g.ctx.fillRect(19.7, 0.7, 0.9, 0.9); }
         g.pop();
       },
+      rush: { ex: 12, ey: 3.7, R: 14, vx: 4, vr: 9, vein: [5.4, -8.6, 7, -6.6, 6, -4.8, 8, -3.2] },
       anim: function (g, s) {
-        breath(g, s, 18, 0, 0.8);
+        breath(g, s, 20, 0, 0.9); rushMarks(g, s, this.rush);
         if (s.cargo < 0.99) return;
-        const k = Math.floor(s.t * 6 + s.seed), X = (-7.5 + (k % 3) * 4.1) * 0.9, Y = (k % 2 ? 1 : -1) * 9.2;
-        g.puff(X, Y, 2.4, '#ffffff', 0.8);
-        g.line(X, Y - 2, X, Y + 2, '#e8fffb', 0.5); g.line(X - 2, Y, X + 2, Y, '#e8fffb', 0.5);
+        const k = Math.floor(s.t * 6 + s.seed), X = -5.6 + (k % 4) * 1.6, Y = (k % 2 ? 1 : -1) * 9.6;
+        g.puff(X, Y, 2.6, '#ffffff', 0.85);
+        g.line(X, Y - 2.2, X, Y + 2.2, '#e8fffb', 0.5); g.line(X - 2.2, Y, X + 2.2, Y, '#e8fffb', 0.5);
       },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
-    // ---- Scrapper: wiry recruit in a team singlet, white-taped fists forward
+    // ---- Scrapper: a BOXER. Wide V of shoulders in a team singlet, team bandana with trailing tails, big taped
+    // fists carried high in a guard. Bobs and weaves; every attack is a one-two (lead jab at fire 1, cross at .4).
     scrapper: {
-      frames: 6, kick: -1.4, flash: false, muzzle: [[9, 3]],
+      frames: 6, kick: -1.6, flash: false, muzzle: [[11, 0]],
       body: function (g, s) {
-        const sn = swing(s), f = s.fire;
-        fig(g, s, {
-          k: 1.12, sw: 5.4, td: 3, cloth: s.team, pad: s.teamHi, ar: 1.25, hr: 2.4,
-          torso: function () { g.ellipse(-1.6, 0, 1.2, 3.2, s.teamDk, { lit: 0, bevel: 0, ol: false, alpha: 0.5 }); },
-          arms: [[-1, 4 - sn * 1.6, -3.2, 1.8, TAPE, true], [1, 4 + sn * 1.6 + f * 4.4, 3.1 - f * 1.5, 1.8, TAPE, true]],
-          head: function (hx, hr) { g.circle(hx, 0, hr, s.pal.skin, { lit: 0.24 }); hairCap(g, hx, hr, '#231a1c'); },
-        });
+        const sn = swing(s), f = s.fire, jab = f > 0.5, cross = f > 0 && !jab, sk = s.pal.skin;
+        const tw = jab ? 0.4 : cross ? -0.42 : sn * 0.15, wv = f ? 0 : sn * 0.9, c = Math.cos(tw), si = Math.sin(tw);
+        const sh = function (k) { return [2 * c - k * 6.3 * si, wv + 2 * si + k * 6.3 * c]; };
+        const pump = f ? 0 : sn * 1;
+        const L = jab ? [11.6, -0.8] : cross ? [5.6, -2.9] : [7.5 + pump, -2.7 + wv * 0.6];
+        const R = cross ? [11.2, 0.5] : jab ? [5.6, 2.8] : [6.7 - pump, 2.8 + wv * 0.6];
+        boots(g, s, 2.7, 3, 1.25, -0.6);
+        g.push(0, wv, tw);
+        // the singlet: a fat chevron — spine at the back, shoulder tips swept forward around the head
+        g.poly([-4.8, -2.2, -2.2, -6.6, 2, -8.4, 4, -6.6, 2.6, -3.4, -0.4, -2.2, -0.4, 2.2, 2.6, 3.4, 4, 6.6, 2, 8.4, -2.2, 6.6, -4.8, 2.2], s.team, { r: 1.7, lit: 0.22, lw: 0.75 });
+        g.pop();
+        const a = sh(-1), b = sh(1);
+        limb(g, a[0], a[1], L[0] - 1.2, L[1], 1.7, 1.3, sk); limb(g, b[0], b[1], R[0] - 1.2, R[1], 1.7, 1.3, sk);
+        fist(g, R[0], R[1], 2.3, 0); fist(g, L[0], L[1], 2.3, 0);
+        // head: small, dark crop, a team bandana across it; the knot and two tails trail behind
+        g.push(0, wv, tw * 0.6);
+        const fl = s.moving ? Math.cos(s.walk * TAU) * 1.2 : 0.4, hx = 1.9, hr = 2.7;
+        rag(g, -0.8, 0.5, -8.4, 1.5 + fl * 0.6, 1.15, s.team);
+        rag(g, -0.8, -0.4, -9.4, -1 + fl, 1.2, s.teamHi);
+        g.circle(hx, 0, hr, '#46333a', { lit: 0.3, lw: 0.8, ol: RIM });
+        g.solid(P.ring(hx, 0, 0, hr, -1.25, 1.25), sk, { lit: 0.2, bevel: 0.5, ol: false });
+        g.rect(hx - 0.5, -hr, 1.4, 2 * hr, s.teamHi, { lit: 0, bevel: 0.5, ol: false });
+        g.circle(hx - hr - 0.2, 0.1, 1.1, s.teamHi, { lit: 0.1, lw: 0.5 });
+        g.pop();
       },
-      anim: function (g, s) { slash(g, s, 9.5, 4); },
+      rush: { ex: 3.9, ey: 1.2, R: 7, vx: -1, vr: 6, sway: 0.9, vein: [-3.6, -1.2, -1.8, -3.4, 0.2, -4.4, 1.8, -6.6] },
+      anim: function (g, s) { pow(g, s, 12.8, 0, 3.4); rushMarks(g, s, this.rush); },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
     // ---- Skewer: cocked back with ONE long rebar, quiver of rods on the back, team hood
@@ -681,20 +830,24 @@
           },
         });
       },
+      rush: { ex: 2.8, ey: 1.1, R: 6, vx: -1, vr: 5 },
+      anim: function (g, s) { rushMarks(g, s, this.rush); },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
     // ---- Strongarm: broad collector in a long coat and wide hat, team scarf, cash bag, brass knuckles
     strongarm: {
       frames: 6, kick: -1, flash: false, muzzle: [[10, 3.4]],
       body: function (g, s) {
-        const sn = swing(s), f = s.fire, sk = s.pal.skin, coat = '#4e3c46', cd = A.shade(coat, -0.18);
+        const sn = swing(s), f = s.fire, sk = s.pal.skin, coat = '#7a626c', cd = A.shade(coat, -0.2);
         fig(g, s, {
           sw: 6.2, td: 3.2, cloth: coat, sleeve: coat, ar: 1.5, hr: 2.8, feet: 2.4,
           under: function (w) {
-            g.poly([-0.5, -5.8, -9.6 + w * 0.7, -6.8, -11, -2.2, -11, 2.2, -9.6 - w * 0.7, 6.8, -0.5, 5.8], cd, { r: 1.6, lit: 0.12 });
-            g.poly([-9.6 + w * 0.7, -6.8, -11, -2.2, -11, 2.2, -9.6 - w * 0.7, 6.8, -10.6 - w * 0.7, 5.6, -12, 0, -10.6 + w * 0.7, -5.6], s.team, { r: 1, lit: 0.1, lw: 0.4 });
-            g.poly([-1, -2, -8.6, -3.4 + w, -9.4, -1.2 + w, -1, 0.4], s.team, { r: 0.6, lit: 0.14, lw: 0.4 });
-            g.poly([-1, 0.4, -7.6, 1.6 + w, -8.2, 3.6 + w, -1, 2.2], s.teamHi, { r: 0.6, lit: 0.14, lw: 0.4 });
+            // the long coat flares into two tails; their broad hem is team colour
+            g.poly([-0.5, -6, -6, -7.8 + w * 0.4, -12, -8.6 + w * 0.8, -13, -3.2 + w * 0.5, -9.6, 0, -13, 3.2 + w * 0.5, -12, 8.6 + w * 0.8, -6, 7.8 + w * 0.4, -0.5, 6], s.team, { r: 1.2, lit: 0.2, lw: 0.75 });
+            g.poly([-0.5, -6, -6, -7.8 + w * 0.4, -8.8, -8.1 + w * 0.6, -9.2, -2.6, -7.6, 0, -9.2, 2.6, -8.8, 8.1 + w * 0.6, -6, 7.8 + w * 0.4, -0.5, 6], cd, { r: 1.2, lit: 0.16, lw: 0.4 });
+            g.poly([-1, -2.2, -8.8, -3.8 + w, -9.8, -1.2 + w, -1, 0.3], s.team, { r: 0.6, lit: 0.16, lw: 0.5 });
+            g.poly([-1, 0.3, -7.8, 1.4 + w, -8.6, 3.8 + w, -1, 2.3], s.teamHi, { r: 0.6, lit: 0.16, lw: 0.5 });
           },
           torso: function () { g.solid(P.ring(0.5, 0, 3.2, 5, PI * 0.45, PI * 1.55), s.team, { lit: 0.14, lw: 0.4 }); },
           prop: function () {
@@ -702,157 +855,238 @@
             g.circle(4.2, -8.2, 1.2, GOLD, { lit: 0.3, lw: 0.3 });
           },
           arms: [[-1, 3.6 - sn * 0.6, -6.2, 1.4, sk], [1, 5 + sn * 1.2 + f * 3.8, 3.2 - f * 0.8, 1.6, sk]],
-          over: function () { const X = 5 + sn * 1.2 + f * 3.8, Y = 3.2 - f * 0.8; g.rect(X + 0.5, Y - 1.6, 1.1, 3.2, BRASS, { r: 0.5, lit: 0.3, lw: 0.35 }); },
+          over: function () { const X = 5 + sn * 1.2 + f * 3.8, Y = 3.2 - f * 0.8; g.rect(X + 0.3, Y - 1.9, 1.5, 3.8, BRASS, { r: 0.6, lit: 0.3, lw: 0.5 }); },
           head: function (hx) {
-            g.circle(hx, 0, 4.4, '#2e2630', { lit: 0.2, lw: 0.5 });
-            g.solid(P.ring(hx, 0, 2.7, 3.4), '#1c171e', { lit: 0, bevel: 0, lw: 0.3 });
-            g.circle(hx, 0, 2.7, s.team, { lit: 0.22, lw: 0.4 });
-            if (g.vis()) g.line(hx - 1.6, 0, hx + 1.6, 0, s.teamDk, 0.6);
+            g.circle(hx, 0, 4.7, '#d6cab0', { lit: 0.26, lw: 0.8, ol: RIM });             // a pale wide-brim hat
+            g.circle(hx, 0, 3.1, '#2a2026', A.FLAT);
+            g.circle(hx, 0, 2.5, s.team, { lit: 0.22, lw: 0.3 });
+            if (g.vis()) g.line(hx - 1.5, 0, hx + 1.5, 0, s.teamDk, 0.6);
           },
         });
       },
-      anim: function (g, s) { slash(g, s, 10, 4.5); },
+      rush: { ex: 4.6, ey: 1.3, R: 7, vx: -1, vr: 6 },
+      anim: function (g, s) { pow(g, s, 10.5, 2.6, 3.4); rushMarks(g, s, this.rush); },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
-    // ---- Can Opener: a giant with a huge breaching bar held two-handed across the body
+    // ---- Can Opener: a GIANT — body mass first: a barrel back in a team vest under two huge round team shoulder
+    // pads, a small bald head sunk between them. The one prop: a long steel breaching bar with a forked claw, carried
+    // diagonally across the body in both hands; the attack sweeps it through a wide arc (drawn live).
     canopener: {
-      frames: 6, kick: -1.2, flash: false, muzzle: [[17, 3]],
+      frames: 6, kick: -1.6, flash: false, muzzle: [[15, -4]], height: 3.2,
       body: function (g, s) {
-        const sn = swing(s), f = s.fire, sk = A.shade(s.pal.skin, -0.14);
-        const b = f > 0.5 ? [-4, 5, 19.5, 2.2] : f > 0 ? [-7, 10.5, 12, -7.5] : [-7, -10, 14, 8];
-        const at = function (t) { return [b[0] + (b[2] - b[0]) * t, b[1] + (b[3] - b[1]) * t]; }, h1 = at(0.4), h2 = at(0.62);
-        fig(g, s, {
-          sw: 9.4, td: 4.6, cloth: s.teamLo, sleeve: sk, pad: s.team, padR: 3, ar: 2.5, hr: 3.1, feet: 4.6, stride: 2.6, boot: '#2e262a',
-          torso: function () {
-            g.line(-3.6, -7.6, 3, 7, '#2a1e22', 1.8); g.line(-3.6, 7.6, 3, -7, '#2a1e22', 1.8);
-            g.circle(-0.3, 0, 1.6, BRASS, { lit: 0.3, lw: 0.4 });
-          },
-          prop: function () {
-            const a = Math.atan2(b[3] - b[1], b[2] - b[0]);
-            g.capsule(b[0], b[1], b[2], b[3], 1.35, '#7d8796', { lit: 0.25, lw: 0.6 });
-            g.push(b[2], b[3], a);
-            g.poly([-1, -1.4, 2.6, -2.6, 3.8, -1.2, 1.6, 0, 3.8, 1.2, 2.6, 2.6, -1, 1.4], '#9aa4b4', { r: 0.4, lit: 0.25, lw: 0.5 });
-            g.pop();
-            g.rect(b[0] + (b[2] - b[0]) * 0.12 - 1.2, b[1] + (b[3] - b[1]) * 0.12 - 1.6, 2.4, 3.2, s.team, { r: 0.6, lw: 0.35 });
-          },
-          arms: [[-1, h1[0], h1[1], 2.3, sk], [1, h2[0], h2[1], 2.3, sk]],
-          head: function (hx, hr) {
-            g.circle(hx, 0, hr, sk, { lit: 0.26 });
-            if (g.vis()) { g.line(hx - 1.4, -1.8, hx + 0.8, -0.6, 'rgba(60,30,30,0.6)', 0.5); }
-          },
-        });
+        const sn = swing(s), f = s.fire, hit = f > 0.5, rec = f > 0 && !hit, sk = A.shade(s.pal.skin, -0.08);
+        const tw = hit ? -0.34 : rec ? -0.5 : sn * 0.07, c = Math.cos(tw), si = Math.sin(tw), bob = f ? 0 : sn * 0.5;
+        const b = hit ? [0.4, 8, 15.6, -5.6] : rec ? [3.4, 7, 9.6, -12.6] : [-4.6, -14 + bob, 12, 10.4 + bob];
+        const at = function (t) { return [b[0] + (b[2] - b[0]) * t, b[1] + (b[3] - b[1]) * t]; };
+        const hL = at(hit ? 0.64 : rec ? 0.62 : 0.36), hR = at(hit ? 0.3 : rec ? 0.24 : 0.74);
+        const pad = function (k) { return [0.6 * c - k * 7.7 * si, 0.6 * si + k * 7.7 * c]; }, pL = pad(-1), pR = pad(1);
+        const vest = A.visible(A.shade(s.team, -0.4), 0.13);
+        boots(g, s, 4.6, 2.8, 2, 0.4);
+        g.push(0, 0, tw);
+        g.ellipse(-1.2, 0, 6.8, 9.1, vest, { lit: 0.24, lw: 0.85 });                  // barrel back, team vest
+        if (g.vis()) { g.line(-6.2, -4.8, 0.6, 4.4, s.team, 1.4); g.line(-6.2, 4.8, 0.6, -4.4, s.team, 1.4); }
+        g.circle(-2.8, 0, 1.7, BRASS, { lit: 0.3, lw: 0.45 });
+        for (let k = -1; k <= 1; k += 2) {                                             // the pads: big smooth domes
+          g.ellipse(0.6, k * 7.7, 4.7, 4.4, s.team, { lit: 0.3, lw: 0.85 });
+          if (g.vis()) { const p = new Path2D(); p.arc(0.6, k * 7.7, 2.9, PI * 0.9, PI * 1.75); g.stroke(p, A.alpha(s.teamHi, 0.8), 1.1); }
+        }
+        g.circle(1.8, 0, 2.9, '#b4bdcc', { lit: 0.3, lw: 0.8, ol: '#1c2029' });        // small head sunk between them: a dented can-lid skullcap
+        g.solid(P.ring(1.8, 0, 1.5, 2.9, -0.7, 0.7), sk, { lit: 0.1, bevel: 0, ol: false });
+        if (g.vis()) { g.line(2.9, -1.6, 2.9, 1.6, '#1c2029', 0.7); g.line(0, -1.4, 1.4, 0.6, 'rgba(0,0,0,0.3)', 0.5); }
+        g.pop();
+        // forearms reach from under the pads to the bar
+        limb(g, pL[0] + 1.6, pL[1] + 1.2, hL[0], hL[1], 2.9, 2.3, sk); limb(g, pR[0] + 1.6, pR[1] - 1.2, hR[0], hR[1], 2.9, 2.3, sk);
+        // the breaching bar: steel shaft, forked claw at the business end, chisel at the tail
+        const ang = Math.atan2(b[3] - b[1], b[2] - b[0]);
+        g.line(b[0], b[1], b[2], b[3], '#1c2029', 3.4, { cap: 'butt' });
+        g.line(b[0], b[1], b[2], b[3], '#aeb8c9', 2.1, { cap: 'butt' });
+        if (g.vis()) g.line(b[0], b[1], b[2], b[3], 'rgba(255,255,255,0.5)', 0.6, { cap: 'butt' });
+        g.push(b[2], b[3], ang);
+        g.poly([-1.6, -1.5, 1.6, -3.7, 5.4, -3.3, 6, -1.9, 2.9, -1.3, 2.3, 0, 2.9, 1.3, 6, 1.9, 5.4, 3.3, 1.6, 3.7, -1.6, 1.5], '#c9d1de', { r: 0.4, lit: 0.25, lw: 0.75, ol: '#1c2029' });
+        g.rect(-5.6, -1.6, 2.8, 3.2, s.team, { r: 0.5, lit: 0.1, lw: 0.4 });
+        g.pop();
+        g.push(b[0], b[1], ang);
+        g.poly([0.6, -1.3, -2.8, -2.2, -3.6, 0, -2.8, 2.2, 0.6, 1.3], '#c9d1de', { r: 0.3, lit: 0.25, lw: 0.7, ol: '#1c2029' });
+        g.pop();
+        fist(g, hL[0], hL[1], 2.5, ang + PI / 2); fist(g, hR[0], hR[1], 2.5, ang + PI / 2);
       },
-      anim: function (g, s) { slash(g, s, 15, 7); },
-      lights: function (g, s) {
-        if (!enraged(s)) return;
-        const k = 0.45 + 0.25 * Math.sin(s.t * 10 + s.seed);
-        g.puff(2.6, 0, 4.2, s.pal.rush, k); g.puff(0, 0, 11, s.pal.rush, k * 0.18);
-      },
-    },
-
-    // ---- Hammer Thrower: heavy athlete, wide stance, a team-painted gas cylinder on a chain (orbits when thrown)
-    thrower: {
-      frames: 6, flash: false, muzzle: [[14, 0]],
-      body: function (g, s) {
-        const f = s.fire;
-        fig(g, s, {
-          sw: 8.2, td: 4, cloth: '#3e3540', sleeve: s.pal.skin, ar: 2.1, hr: 3, feet: 9.6, stride: 1.2,
-          torso: function () { g.rect(-3.6, -7.2, 7, 2.2, s.team, { r: 1, lit: 0.1, lw: 0.35 }); g.rect(-3.6, 5, 7, 2.2, s.team, { r: 1, lit: 0.1, lw: 0.35 }); },
-          prop: function () {
-            if (f) { chain(g, 6.4, 0, 9.5, 0); return; }
-            chain(g, 6.4, 0, 9.6, 4.4);
-            g.push(13, 6, 0.35);
-            g.capsule(-3.6, 0, 3.6, 0, 2.4, s.team, { lit: 0.28, lw: 0.55 });
-            g.rect(-1.2, -2.4, 1.3, 4.8, s.teamDk, A.FLAT);
-            g.circle(-4.4, 0, 1.2, '#c3ccdb', { lit: 0.25, lw: 0.4 });
-            g.pop();
-          },
-          arms: [[-1, 6.2, -1.1, 1.9], [1, 6.2, 1.1, 1.9]],
-          head: function (hx, hr) {
-            g.circle(hx, 0, hr, s.pal.skin, { lit: 0.24 });
-            g.solid(P.ring(hx, 0, hr - 0.9, hr + 0.15), s.team, { lit: 0.1, lw: 0.3 });
-            hairCap(g, hx, hr - 0.9, '#2a1f22');
-          },
-        });
-      },
+      rush: { ex: 3.9, ey: 1.2, R: 11, vx: 0, vr: 9, vein: [-6, -3, -4, -1, -5, 1.4, -3, 3.6] },
       anim: function (g, s) {
-        if (s.fire < 0.05) return;
-        const a = s.fire * TAU * 1.3 - 0.4, R = 11, x = 4 + Math.cos(a) * R, y = Math.sin(a) * R, c = g.ctx, ga = c.globalAlpha;
-        const p = new Path2D();
-        p.arc(4, 0, R, a - 1.6, a); c.globalAlpha = ga * 0.35; g.stroke(p, CLAW, 2.2); c.globalAlpha = ga;
-        g.line(6.2, 0, x, y, CHAIN, 0.9);
-        g.capsule(x - Math.cos(a + PI / 2) * 3.4, y - Math.sin(a + PI / 2) * 3.4, x + Math.cos(a + PI / 2) * 3.4, y + Math.sin(a + PI / 2) * 3.4, 2.3, s.team, { ol: '#1a1418', lw: 0.6 });
+        rushMarks(g, s, this.rush);
+        if (s.fire < 0.08) return;
+        const c = g.ctx, a = c.globalAlpha, p = new Path2D(), q = new Path2D();      // the swing: a wide arc right -> left
+        p.arc(1, 0, 15.5, -0.5 - (1 - s.fire) * 0.5, 0.75, false); q.arc(1, 0, 17.2, -0.4 - (1 - s.fire) * 0.5, 0.2, false);
+        c.globalAlpha = a * Math.min(1, s.fire * 1.3) * 0.55; g.stroke(p, CLAW, 2.6);
+        c.globalAlpha = a * Math.min(1, s.fire * 1.3); g.stroke(q, CLAW, 0.9);
+        c.globalAlpha = a;
       },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
-    // ---- Pit Champion: big belted hero — gold title belt over the shoulder, spiked team mane collar, cape scraps
-    champion: {
-      frames: 6, kick: -1.2, flash: false, muzzle: [[12, 4]],
+    // ---- Hammer Thrower: a planted, wide, heavy athlete — bare barrel body, team sash and headband, boots set
+    // wide. Both hands on a chain that runs over the shoulder to the weight at rest behind him: a team-painted gas
+    // cylinder. On the throw the arms fly open and the whirl hangs in the air as a fading circle (live).
+    thrower: {
+      frames: 6, flash: false, muzzle: [[13, -1]], height: 3.2,
       body: function (g, s) {
-        const sn = swing(s), f = s.fire, sk = s.pal.skin;
-        fig(g, s, {
-          k: 1.06, sw: 9, td: 4.2, cloth: '#5a2c3a', sleeve: sk, ar: 2.3, hr: 3, feet: 4.2, stride: 2.4,
-          under: function (w) {
-            g.poly([-1, -7.5, -8 + w * 0.5, -8.2, -10, -6, -12.4, -6.6, -11.2, -3, -13.4, -1, -11.6, 1.2, -13, 4.4, -10.6, 5.2, -9.4 - w * 0.5, 8, -1, 7.5], A.shade(s.pal.tarp, -0.12), { r: 0.6, lit: 0.14 });
-          },
-          torso: function () {
-            g.line(3.4, -7.6, -3.6, 7.6, '#7a5a22', 3.4); g.line(3.4, -7.6, -3.6, 7.6, GOLD, 2.4);
-            g.ellipse(2.3, -5.6, 2.4, 3.2, GOLD, { lit: 0.3, lw: 0.5, rot: 0.2 });
-            g.circle(2.3, -5.6, 1, s.pal.bone, { lit: 0.3, lw: 0.3 });
-          },
-          arms: [[-1, 4.6 - sn * 1.6, -7.4, 2.2, s.pal.bone], [1, 4.6 + sn * 1.6 + f * 4.6, 7.2 - f * 2.2, 2.2, s.pal.bone]],
-          head: function (hx, hr) {
-            const sp = [];
-            for (let i = 0; i < 22; i++) { const a = i * TAU / 22, r = i % 2 ? 4.6 : 6.6; sp.push(hx + Math.cos(a) * r, Math.sin(a) * r); }
-            g.poly(sp, s.team, { lit: 0.2, lw: 0.5 });
-            g.circle(hx, 0, 4.4, s.teamLo, { lit: 0.1, lw: 0.4 });
-            g.solid(P.ring(hx, 0, 4.6, 6.8, PI * 0.62, PI * 1.38), GOLD, { lit: 0.3, lw: 0.5 });
-            g.ellipse(hx - 5.8, 0, 2, 3, '#f6e6a8', { lit: 0.3, lw: 0.5 });
-            g.circle(hx - 5.8, 0, 0.9, s.pal.bone, { lit: 0.2, lw: 0.3 });
-            g.circle(hx, 0, hr, sk, { lit: 0.26 });
-            hairCap(g, hx, hr, '#1e1618');
-          },
-        });
+        const sn = swing(s), f = s.fire, rel = f > 0.5, rec = f > 0 && !rel, sk = s.pal.skin;
+        const tw = rel ? -0.55 : rec ? -0.28 : 0.2 + sn * 0.05, c = Math.cos(tw), si = Math.sin(tw), drag = f ? 0 : sn * 0.7;
+        const shd = function (k) { return [1 * c - k * 6.4 * si, 1 * si + k * 6.4 * c]; }, a = shd(-1), b = shd(1);
+        const HL = rel ? [9.6, -5.6] : rec ? [7.6, -4] : [5.6, 0.2], HR = rel ? [10.4, 1.2] : rec ? [8, 1.6] : [5.2, 3.2];
+        boots(g, s, 8.8, 1.5, 2.2, 0.4);
+        if (!f) {                                                                      // the weight at rest behind
+          g.push(-11.2, 3.2 + drag, 0.28);
+          g.capsule(-3.6, 0, 3.4, 0, 3, s.team, { lit: 0.3, lw: 0.85 });
+          g.rect(-1.6, -3, 1.6, 6, s.teamDk, A.FLAT); g.rect(1.6, -3, 0.9, 6, s.teamHi, A.FLAT);
+          g.rect(5.4, -1.3, 2, 2.6, '#c3ccdb', { r: 0.6, lit: 0.25, lw: 0.6, ol: '#1c2029' });
+          g.pop();
+        }
+        g.push(0, 0, tw);
+        g.ellipse(-0.8, 0, 5.8, 7.9, '#5a4138', { lit: 0.2, lw: 0.85 });               // lifting belt round the back
+        g.ellipse(0.5, 0, 4.9, 7.7, sk, { lit: 0.24, lw: 0.5 });                       // the barrel body
+        g.poly([-0.4, -7.9, 4.6, -5.6, -1.6, 6.6, -6.2, 3.6], s.team, { r: 1.2, lit: 0.22, lw: 0.7 });  // sash
+        const fl = s.moving ? Math.cos(s.walk * TAU) : 0.3;
+        rag(g, -3.4, 6.4, -8.6, 9.4 + fl, 1.3, s.team); rag(g, -3.2, 6, -9.4, 7 + fl * 0.6, 1.2, s.teamHi);
+        g.pop();
+        limb(g, a[0], a[1], HL[0] - 1, HL[1], 3, 2.3, sk); limb(g, b[0], b[1], HR[0] - 1, HR[1], 3, 2.3, sk);
+        if (!f) {                                                                      // the chain, over the shoulder
+          chain(g, HR[0], HR[1], 0.2, 5.6, CHAIN, 1.9); chain(g, 0.2, 5.6, -4.4, 5.2 + drag * 0.5, CHAIN, 1.9);
+          chain(g, -4.4, 5.2 + drag * 0.5, -6, 4.6 + drag, CHAIN, 1.9);
+        }
+        fist(g, HL[0], HL[1], 2.3, 0); fist(g, HR[0], HR[1], 2.3, 0);
+        g.push(0, 0, tw * 0.5);
+        g.circle(1.4, 0, 3.1, s.teamHi, { lit: 0.2, lw: 0.8, ol: RIM });               // headband ring, crop inside
+        g.circle(1.4, 0, 2.1, '#3a2a2e', { lit: 0.3, bevel: 0.6, ol: false });
+        g.solid(P.ring(1.4, 0, 0, 2.1, -1.1, 1.1), sk, { lit: 0.2, bevel: 0, ol: false });
+        g.pop();
       },
-      anim: function (g, s) { slash(g, s, 14, 6.5); },
+      rush: { ex: 3.6, ey: 1.2, R: 10, vx: -1, vr: 8, vein: [-4.6, -3.4, -2.8, -1.6, -3.8, 0.6, -2, 2.6] },
+      anim: function (g, s) {
+        rushMarks(g, s, this.rush);
+        if (s.fire < 0.05) return;
+        // the whirl hangs in the air as an open comet arc, brightest where the weight left the chain (the fx layer
+        // flies the real canister from fire = 1, so no second weight is drawn here), plus the chain whipping out
+        const c = g.ctx, a = c.globalAlpha, k = Math.min(1, s.fire * 1.4), q = new Path2D(), r = new Path2D();
+        q.arc(0, 0, 13, -PI * 1.25, 0); r.arc(0, 0, 13, -PI * 0.5, 0);
+        c.globalAlpha = a * k * 0.35; g.stroke(q, CLAW, 1.6);
+        c.globalAlpha = a * k * 0.8; g.stroke(r, CLAW, 2.6);
+        g.line(8, -1.6, 13, 0, CHAIN, 1.1);
+        c.globalAlpha = a;
+      },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
-    // ---- Alley Cat: long low engineered jaguar — teardrop body, long tail, moving shoulder blades, team collar
+    // ---- Pit Champion: the HERO, the biggest human. A mane-collar of team spikes swept back around the neck, a
+    // tattered team cape trailing behind with the pale-gold title belt slung across it, bare slab shoulders, huge
+    // bone-wrapped fists held wide and low. Slow heavy walk; the attack is a two-fisted overhead smash.
+    champion: {
+      frames: 6, kick: -1.6, flash: false, muzzle: [[13, 0]], height: 3.2,
+      body: function (g, s) {
+        const sn = swing(s), f = s.fire, slam = f > 0.5, rec = f > 0 && !slam, sk = s.pal.skin;
+        const lean = slam ? 1.8 : rec ? 0.9 : 0, cw = s.moving ? Math.cos(s.walk * TAU) * 1.5 : 0, fl = slam ? 2 : rec ? 1 : 0;
+        const pump = f ? 0 : sn * 1.3, hx = 1.4, cape = A.visible(A.shade(s.team, -0.42), 0.13);
+        const FL = slam ? [12.4, -2] : rec ? [9.4, -3.8] : [7.2 + pump, -7.4], FR = slam ? [12.4, 2] : rec ? [9.4, 3.8] : [7.2 - pump, 7.4];
+        boots(g, s, 4.6, 3, 1.9, 0.6);
+        g.push(lean, 0, f ? 0 : sn * 0.07);
+        g.ellipse(0, 0, 5.2, 11.6, sk, { lit: 0.22, lw: 0.8 });                      // the slab of shoulders
+        // cape: hangs from the collar, ragged hem, sways with the walk and flares on the smash
+        g.poly([-0.6, -8.6, -7.6, -10.6 - fl, -14.6, -9.4 - fl + cw, -12.8, -6.4 + cw, -17.6, -4.8 + cw, -15, -2 + cw, -19, 0.6 + cw,
+          -15.4, 2.6 + cw, -18, 5.6 + cw, -13.4, 6.6 + cw, -15, 10 + fl + cw, -7.6, 10.6 + fl, -0.6, 8.6], cape, { r: 0.5, lit: 0.2, lw: 0.75 });
+        if (g.vis()) {
+          g.line(-9, -5.4, -14, -6.6 + cw, 'rgba(0,0,0,0.3)', 0.8); g.line(-10, 4.6, -14.4, 4.4 + cw, 'rgba(0,0,0,0.3)', 0.8);
+          g.line(-9.4, -4.8, -13.6, -5.6 + cw, A.alpha(s.team, 0.6), 0.5);
+        }
+        // the title belt, slung across the back over the cape: pale gold strap, big oval plate, bone stud
+        g.line(-7.4, -9.2, -14.6, 8 + cw * 0.6, '#5e4a1c', 3.6, { cap: 'butt' });
+        g.line(-7.4, -9.2, -14.6, 8 + cw * 0.6, GOLD, 2.3, { cap: 'butt' });
+        g.ellipse(-11.2, -0.4 + cw * 0.3, 3.1, 4.4, '#f3e4a2', { rot: -0.4, lit: 0.3, lw: 0.75, ol: '#5e4a1c' });
+        g.circle(-11.2, -0.4 + cw * 0.3, 1.3, s.pal.bone, { lit: 0.3, lw: 0.45 });
+        // arms + bone fists
+        limb(g, 1.4, -9.6, FL[0] - lean - 1.6, FL[1], 3.3, 2.5, sk); limb(g, 1.4, 9.6, FR[0] - lean - 1.6, FR[1], 3.3, 2.5, sk);
+        fist(g, FL[0] - lean, FL[1], 3.1, 0); fist(g, FR[0] - lean, FR[1], 3.1, 0);
+        // the mane collar: a horseshoe of spikes, long at the back, open at the throat
+        const sp = [], n = 7, a0 = 0.9, a1 = TAU - 0.9;
+        for (let i = 0; i <= 2 * n; i++) {
+          const a = a0 + (a1 - a0) * i / (2 * n), tip = i % 2, r = tip ? 8 + 1.7 * Math.max(0, -Math.cos(a)) : 5, b = tip ? a + 0.2 * Math.sin(a) : a;
+          sp.push(hx + Math.cos(b) * r, Math.sin(b) * r);
+        }
+        g.poly(sp, s.team, { lit: 0.26, lw: 0.85 });
+        g.solid(P.ring(hx, 0, 3, 5.2, a0, a1), s.teamHi, { lit: 0.14, bevel: 0.6, lw: 0.4 });
+        g.circle(hx + 0.2, 0, 3.2, sk, { lit: 0.28, lw: 0.75, ol: RIM });
+        g.capsule(hx - 2.2, 0, hx + 1.6, 0, 1, '#33262a', { r1: 0.7, lit: 0.1, bevel: 0.5, lw: 0.3 });
+        g.pop();
+      },
+      rush: { ex: 4.3, ey: 1.4, R: 12, vx: 1, vr: 9, vein: [-1, -10.4, 1.6, -9, 3.4, -9.8, 5.2, -8.2] },
+      anim: function (g, s) {
+        rushMarks(g, s, this.rush);
+        if (s.fire < 0.08) return;
+        const c = g.ctx, a = c.globalAlpha, k = 1 - s.fire, p = new Path2D();     // the smash: a shock ring off the fists
+        p.arc(14.5, 0, 3 + k * 9, -1.25, 1.25);
+        c.globalAlpha = a * Math.min(1, s.fire * 1.5); g.stroke(p, CLAW, 1.5 - k); c.globalAlpha = a;
+        pow(g, s, 15, 0, 4.5);
+      },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
+    },
+
+    // ---- Alley Cat: a BIG fighting cat. Broad wedge skull with ears, heavy shoulders wider than the hips, a short
+    // deep body with rosettes, a thick tail with a curl, a team body wrap and collar. Lopes with rolling shoulder
+    // blades; the attack is a full-stretch pounce (fire 1), then the landing crouch (fire .4).
     alleycat: {
       frames: 6, height: 2.6, flash: false, muzzle: [[16, 0]],
       body: function (g, s) {
         const f = s.fire, mv = s.moving, ph = s.walk * TAU, pounce = f > 0.5, crouch = f > 0 && !pounce;
-        const fur = '#8a7258', dk = A.shade(fur, -0.4), spot = '#2e2428', st = pounce ? 1.16 : crouch ? 0.9 : 1;
+        const fur = '#b8976a', dk = A.shade(fur, -0.36), pale = A.shade(fur, 0.34), spot = '#2e2226';
+        const st = pounce ? 1.13 : crouch ? 0.9 : mv ? 1 + Math.sin(ph) * 0.045 : 1;
         g.push(0, 0, 0, st, 1);
+        // legs: front pair and rear pair alternate (a lope); big pale paws
         for (let i = 0; i < 4; i++) {
-          const front = i < 2, side = i % 2 ? 1 : -1, p = ph + ((front ? side > 0 : side < 0) ? PI : 0), sw = mv ? Math.sin(p) * 3.4 : 0;
-          const bx = front ? 4.6 : -6, by = side * 3.2;
-          let px = front ? 7 + sw : -7.6 + sw, py = side * 5.8;
-          if (pounce) { px = front ? 12.6 : -12.6; py = side * (front ? 4.2 : 3.2); }
-          else if (crouch) { px = front ? 6.2 : -5.6; py = side * 6.2; }
-          leg(g, bx, by, px, py, 1.4, dk, '#3a3034');
-          if (pounce && front && g.vis()) for (let k = -1; k <= 1; k++) g.line(px + 0.9, py + k * 0.7, px + 2.4, py + k * 1.1, s.pal.bone, 0.5);
+          const front = i < 2, side = i % 2 ? 1 : -1, p = ph + (front ? 0 : PI) + side * 0.35, sw = mv ? Math.sin(p) * 3.2 : 0;
+          const bx = front ? 5 : -7, by = side * (front ? 5 : 3.2);
+          let px = front ? 8.4 + sw : -8.6 + sw, py = side * (front ? 6.8 : 5.4);
+          if (pounce) { px = front ? 13.4 : -12.8; py = side * (front ? 4 : 3); }
+          else if (crouch) { px = front ? 8.4 : -6; py = side * (front ? 7.4 : 6.4); }
+          g.capsule(bx, by, px, py, 2, dk, { r1: 1.5, lit: 0.1, bevel: 0.6, lw: 0.6 });
+          g.ellipse(px + 0.4, py, 1.9, 1.55, A.shade(fur, 0.1), { lit: 0.14, lw: 0.55 });
+          if (pounce && front && g.vis()) for (let k = -1; k <= 1; k++) g.line(px + 1.6, py + k * 0.9, px + 3.4, py + k * 1.3, s.pal.bone, 0.6);
         }
-        const tw = mv ? Math.sin(ph) : 0.6;
-        g.capsule(-8.4, 0, -13.6, tw * 2.8, 1.65, fur, { r1: 1.4, lit: 0.12, lw: 0.5 });
-        g.capsule(-13.6, tw * 2.8, -18.6, -tw * 1.2 + 1.8, 1.4, fur, { r1: 1.2, lit: 0.12, lw: 0.5 });
-        g.capsule(-18.6, -tw * 1.2 + 1.8, -21.6, -tw * 2.8 + 4, 1.2, spot, { r1: 1.1, lit: 0.12, lw: 0.5 });
-        g.blob([-10, 0, -9.6, -4.4, -4, -4.6, 1.6, -6.6, 7, -6.2, 9.6, 0, 7, 6.2, 1.6, 6.6, -4, 4.6, -9.6, 4.4], fur, { lit: 0.22 });
-        if (g.vis()) for (const q of [[-7.4, -2.4], [-4.6, 2.6], [-7.8, 2.2], [0.6, -3.2], [1.2, 3.4], [-1.4, 0.2]]) { const p = new Path2D(); p.arc(q[0], q[1], 1.1, 0.4, TAU - 0.5); g.stroke(p, spot, 0.75); }
-        const sb = mv ? Math.sin(ph) * 1.2 : 0;
-        g.ellipse(4.4 + sb, -3, 2.2, 1.4, A.shade(fur, 0.16), { lit: 0.12, bevel: 0.5, lw: 0.35 });
-        g.ellipse(4.4 - sb, 3, 2.2, 1.4, A.shade(fur, 0.16), { lit: 0.12, bevel: 0.5, lw: 0.35 });
-        g.rect(-5.4, -4.4, 5.2, 8.8, s.team, { r: 2, lit: 0.14, lw: 0.4 });
-        g.line(-0.4, -4.4, 6.6, -4.8, s.teamLo, 0.9); g.line(-0.4, 4.4, 6.6, 4.8, s.teamLo, 0.9);
-        g.rect(7, -4.6, 2.2, 9.2, s.team, { r: 1, lit: 0.12, lw: 0.4 });
+        // tail: thick, carried low, a curl at the tip
+        const tw = pounce ? 0 : mv ? Math.sin(ph) * 1.6 : 1.2, tail = new Path2D();
+        tail.moveTo(-9.4, 0); tail.quadraticCurveTo(-13.4, tw * 0.6, -16, tw * 1.6 + 0.6);
+        if (pounce) tail.lineTo(-17.6, 0.6); else tail.quadraticCurveTo(-19.2, tw * 2.2 + 2.4, -17, tw * 2 + 5);
+        g.stroke(tail, A.shade(fur, -0.7), 3.9); g.stroke(tail, fur, 2.6);
+        g.line(-12.2, tw * 0.5 - 1.5, -12.6, tw * 0.5 + 1.7, s.team, 1.7, { cap: 'butt' });               // tail band
+        if (g.vis()) { const tip = new Path2D(); if (pounce) { tip.moveTo(-15.6, 0.6); tip.lineTo(-17.6, 0.6); } else { tip.moveTo(-18.5, tw * 2.1 + 2.8); tip.quadraticCurveTo(-18.9, tw * 2.1 + 4.1, -17, tw * 2 + 5); } g.stroke(tip, spot, 2.6); }
+        // body: narrow hips and waist, a deep chest, heavy shoulders
+        g.blob([-11.8, 0, -10.8, -5.2, -6, -4.6, -2.6, -3.4, 2, -6.8, 6.6, -8.8, 10, -4.2, 10, 4.2, 6.6, 8.8, 2, 6.8, -2.6, 3.4, -6, 4.6, -10.8, 5.2], fur, { lit: 0.26, lw: 0.85 });
+        if (g.vis()) for (const q of [[-8.4, -2.2], [-8.4, 2.4], [-9.6, 0.2], [2.6, -4.6], [2.6, 4.8], [2, 0], [7.8, -0.2], [6.6, -6.4], [6.6, 6.4]]) {
+          const p = new Path2D(); p.arc(q[0], q[1], 1.2, 0.5, TAU - 0.4); g.stroke(p, spot, 0.9);
+        }
+        // team body wrap round the ribs, with a grab handle on the spine
+        g.poly([-6.4, -4.6, -2.4, -3.5, 0.8, -5.4, 0.8, 5.4, -2.4, 3.5, -6.4, 4.6], s.team, { r: 1, lit: 0.22, lw: 0.75 });
+        if (g.vis()) { g.line(-4.6, 0, -1.2, 0, s.teamDk, 1.3); g.line(-4.6, 0, -1.2, 0, s.teamHi, 0.5); }
+        g.line(0.8, -1.6, 8.6, -1.2, s.teamLo, 1.5); g.line(0.8, 1.6, 8.6, 1.2, s.teamLo, 1.5);   // straps to the collar
+        // shoulder blades roll with the gait
+        const sb = mv ? Math.sin(ph) * 1.5 : 0;
+        g.ellipse(5 + sb, -3.5, 2.9, 2.3, A.shade(fur, 0.16), { lit: 0.16, bevel: 0.9, lw: 0.5, ol: A.shade(fur, -0.45) });
+        g.ellipse(5 - sb, 3.5, 2.9, 2.3, A.shade(fur, 0.16), { lit: 0.16, bevel: 0.9, lw: 0.5, ol: A.shade(fur, -0.45) });
+        g.poly([7.4, -4.1, 9.6, -3.7, 9.6, 3.7, 7.4, 4.1], s.team, { r: 0.8, lit: 0.16, lw: 0.65 });    // collar
         g.pop();
-        const hx = 11.2 * st;
-        for (let k = -1; k <= 1; k += 2) g.poly([hx - 1.6, k * 2.2, hx - 2.8, k * 5.8, hx + 0.8, k * 3.9], crouch ? dk : A.shade(fur, -0.12), { r: 0.3, lw: 0.45, lit: 0.1 });
-        g.ellipse(hx, 0, 3.8, 4.4, A.shade(fur, 0.06), { lit: 0.24 });
-        g.ellipse(hx + 3, 0, 1.6, 2.2, A.shade(fur, 0.34), { lit: 0.1, lw: 0.35 });
-        g.circle(hx + 4.4, 0, 0.55, '#1a1214', A.FLAT);
+        // head: broad wedge skull, ears set wide, pale muzzle
+        const hx = (pounce ? 12.8 : crouch ? 11.4 : 12.2) * st;
+        for (let k = -1; k <= 1; k += 2) {
+          g.poly([hx + 0.4, k * 3.2, hx - 4.8, k * 7.6, hx - 3.6, k * 1.8], A.shade(fur, 0.1), { r: 0.4, lit: 0.2, lw: 0.7 });
+          if (g.vis()) g.line(hx - 2.2, k * 3.7, hx - 3.5, k * 5.6, spot, 0.9);
+        }
+        g.poly([hx - 3.4, -4.4, hx + 0.8, -4.2, hx + 4.8, -1.8, hx + 4.8, 1.8, hx + 0.8, 4.2, hx - 3.4, 4.4], A.shade(fur, 0.08), { r: 1.8, lit: 0.26, lw: 0.85 });
+        if (g.vis()) { g.line(hx - 2.8, -1.1, hx - 0.8, -0.8, spot, 0.6); g.line(hx - 2.8, 1.1, hx - 0.8, 0.8, spot, 0.6); }
+        g.ellipse(hx + 3.2, 0, 1.8, 2.4, pale, { lit: 0.12, lw: 0.5 });
+        g.circle(hx + 4.6, 0, 0.7, '#1a1214', A.FLAT);
+        g.circle(hx + 1.2, -2.5, 0.6, '#1a1214', A.FLAT); g.circle(hx + 1.2, 2.5, 0.6, '#1a1214', A.FLAT);
       },
-      anim: function (g, s) { slash(g, s, 16, 4.5); breath(g, s, 15.8, 0, 0.6); },
+      rush: { ex: 13.4, ey: 2.5, R: 11, vx: 3, vr: 8, vein: [-9.6, -3, -7.6, -1.6, -8.6, 0.4, -6.6, 2] },
+      anim: function (g, s) { slash(g, s, 18, 4.5); breath(g, s, 17, 0, 0.6); rushMarks(g, s, this.rush); },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
     // ---- Wrecking Bull: massive wedge — huge shoulders, crescent metal-capped horns, nose ring, team harness
@@ -889,19 +1123,17 @@
         g.circle(13.6, -3, 0.65, '#120c0e', A.FLAT); g.circle(13.6, 3, 0.65, '#120c0e', A.FLAT);
         g.pop(); g.pop();
       },
-      anim: function (g, s) { breath(g, s, 16.8, -1.2, 0.8); },
-      lights: function (g, s) {
-        if (!enraged(s)) return;
-        const k = 0.5 + 0.3 * Math.sin(s.t * 11 + s.seed);
-        g.puff(11.9, -2.6, 2.4, s.pal.rush, k); g.puff(11.9, 2.6, 2.4, s.pal.rush, k);
-        g.puff(17.2, 0, 4, s.pal.rush, k * 0.25);
-      },
+      rush: { ex: 11.7, ey: 2.6, R: 14, vx: 3, vr: 10, vein: [1.6, -9, 3.4, -7, 2.6, -5, 4.6, -3.4] },
+      anim: function (g, s) { breath(g, s, 16.8, -1.2, 0.8); rushMarks(g, s, this.rush); },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
     },
 
     // ---- Butcherbird: condor-sized shrike — wide swept crescent wings, team wing bands, black mask, hooked beak
     butcherbird: {
       frames: 8, fps: 6, height: 20, flash: false, muzzle: [[13, 0]],
-      anim: function (g, s) { slash(g, s, 15, 4); },
+      rush: { ex: 7.6, ey: 1.5, R: 11, vx: -1, vr: 6 },
+      anim: function (g, s) { slash(g, s, 15, 4); rushMarks(g, s, this.rush); },
+      lights: function (g, s) { rushLights(g, s, this.rush); },
       body: function (g, s) {
         const fl = Math.cos(s.walk * TAU), S = 20.5 * (0.84 + 0.16 * fl), w = (1 - fl) * 1.8, back = '#6e6872', dk = A.shade(back, -0.34);
         for (let k = -1; k <= 1; k += 2) {
