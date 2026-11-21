@@ -2301,6 +2301,218 @@ section('determinism + performance: full matches with economy, production and co
   sound('perf economy');
 }
 
+// ===========================================================================
+// THE SKIRMISH AI (ai.js). Real matches on generated maps, fog on, both players AI, driven by NT.step alone.
+// runMatch (test/balance.js) plays one; the balance harness uses the same function with more seeds.
+// ===========================================================================
+const { runMatch } = require('./balance');
+const AI_MAX_MIN = 40;                                        // a match that has not ended after this is a failure
+const AI_SEEDS = [101, 202, 303];
+const aiFacs = NT.FACTION_LIST.map(f => f.id);               // the shipped gangs + the fixture
+const shipped = aiFacs.filter(id => require('fs').existsSync(require('path').join(__dirname, '..', 'js', 'factions', id + '.js')));
+
+section('ai: difficulty table, fairness, a brain only for AI players, commands only for itself');
+{
+  const L = NT.AI.LEVELS;
+  check(L.easy && L.normal && L.hard, 'NT.AI.LEVELS has easy / normal / hard');
+  check(L.normal.prodMul === 1 && L.normal.incomeMul === 1, 'normal is fair: production and income multipliers exactly 1');
+  check(L.easy.prodMul < 1 && L.easy.incomeMul < 1, 'easy is handicapped (< 1)');
+  check(L.hard.prodMul > 1 && L.hard.incomeMul > 1 && L.hard.prodMul <= 1.25 && L.hard.incomeMul <= 1.25, 'hard is only slightly boosted (1 < x <= 1.25)');
+  check(L.easy.think > L.normal.think && L.normal.think > L.hard.think, 'harder levels think more often');
+  // a human (no ai) and a hard AI: the AI never sends a command for the human's player
+  const fa = shipped[0], fb = shipped[1 % shipped.length];
+  const w = NT.createWorld({ map: NT.MapGen.generate({ seed: 7, size: 'small', players: 2 }), seed: 7, players: [{ faction: fa }, { faction: fb, ai: 'hard' }] });
+  const realCmd = NT.cmd, sent = [0, 0], types = {};
+  NT.cmd = function (world, pid, c) { if (world === w) { sent[pid]++; types[c.type] = true; } return realCmd(world, pid, c); };
+  try { go(w, 4 * 60 * NT.TPS); } finally { NT.cmd = realCmd; }
+  check(sent[0] === 0 && sent[1] > 50, 'the AI only commands its own player (' + sent[1] + ' commands for it, ' + sent[0] + ' for the human)');
+  check(['produce', 'place', 'rally', 'amove'].every(t => types[t]), 'it builds, places, rallies and moves troops (' + Object.keys(types).join(', ') + ')');
+  check(!NT.AI.brain(w, 0) && !!NT.AI.brain(w, 1), 'a brain exists for the AI player only');
+  check(w.players[0].incomeMul === 1 && w.players[0].prodMul === 1 && w.players[1].incomeMul === L.hard.incomeMul && w.players[1].prodMul === L.hard.prodMul,
+    'difficulty handicaps are set on the AI player only');
+  const p1 = w.players[1], roles = {};
+  for (const e of w.ents) if (e.alive && e.owner === 1 && e.kind === 'building') roles[e.def.role] = true;
+  check(roles.power && roles.dropoff && roles.producer, 'after 4 minutes the AI has power, a drop-off and a producer (' + Object.keys(roles).join(', ') + ')');
+  check(p1.stats.income > 1000 && w.ents.some(e => e.alive && e.owner === 1 && e.def.traits.harvester), 'and harvests (' + Math.round(p1.stats.income) + ' credits earned)');
+  sound('ai vs human');
+}
+
+section('ai: AI vs AI on normal — every ordered faction pair (fixture included), 3 seeds, generated small maps, fog on');
+{
+  const roles = {}, aiSum = {}, wins = {}, games = {}, qused = {}, denied = {};
+  let capFlips = 0;
+  let ms = 0, steps = 0, peak = 0, longest = 0, shortest = Infinity, stuckN = 0, stuckMsg = '';
+  const t0 = Date.now();
+  for (const a of aiFacs) for (const b of aiFacs) for (const seed of AI_SEEDS) {
+    const hv = new Map(), held = [{}, {}];                     // held[pid][queue] = ticks it owned a producer of that queue
+    const r = runMatch({ factions: [a, b], seed: seed, size: 'small', maxMin: AI_MAX_MIN, every: 200, onTick: function (w) {
+      for (const m of NT.debugCheck(w)) if (dbg.length < 6) dbg.push(a + ' v ' + b + ' #' + seed + ' ' + m);
+      for (const p of w.players) for (const q of p.faction.queues) if (NT.Prod.producers(w, p, q.id)) held[p.id][q.id] = (held[p.id][q.id] || 0) + 200;
+      for (const p of w.players) if (!Number.isFinite(p.credits) || p.credits < 0) dbg.push('player ' + p.id + ' credits ' + p.credits);
+      // every harvester's cargo or position changes at least once per 90 s while there is resource and a drop-off
+      const res = NT.Map.totalRes(w.map);
+      for (const e of w.ents) {
+        if (!e.alive || !e.def.traits.harvester) continue;
+        const h = hv.get(e.id);
+        if (!h || h.cargo !== e.cargo || Math.abs(h.x - e.x) > 1 || Math.abs(h.y - e.y) > 1) { hv.set(e.id, { cargo: e.cargo, x: e.x, y: e.y, t: w.tick }); continue; }
+        const drop = w.ents.some(o => o.alive && o.owner === e.owner && o.def.traits.dropoff);
+        if (w.tick - h.t > 90 * NT.TPS && drop && res > 2000) { stuckN++; stuckMsg = stuckMsg || (a + ' v ' + b + ' #' + seed + ' ' + e.def.id + '#' + e.id + ' at ' + e.cx + ',' + e.cy); h.t = w.tick; }
+      }
+    } });
+    const tag = a + ' v ' + b + ' #' + seed;
+    check(r.over && r.winner >= 0, tag + ': the match ends with a winner within ' + AI_MAX_MIN + ' min (' + r.minutes.toFixed(1) + ' min)');
+    check(r.harvested[0] > 0 && r.harvested[1] > 0, tag + ': both sides harvest (' + r.harvested.map(Math.round).join(' / ') + ')');
+    check(r.hurtFoe[0] > 0 && r.hurtFoe[1] > 0, tag + ': both sides attack (enemy hurt ' + r.hurtFoe.join(' / ') + ' times)');
+    for (let i = 0; i < 2; i++) {
+      const f = NT.FACTIONS[r.factions[i]], made = {};
+      for (const id in r.produced[i]) made[NT.DEFS[id].queue] = true;
+      // the winner, and a loser that lasted 8+ minutes, use every unit queue it held a producer of for 2+ minutes
+      // (a gang crushed early may die paying for its first heavy item; the per-faction total below still counts it)
+      const qs = f.queues.filter(q => q.kind === 'unit' && held[i][q.id] >= 2 * 60 * NT.TPS).map(q => q.id), miss = qs.filter(q => !made[q]);
+      if (r.winner === i || r.minutes >= 8) check(miss.length === 0, tag + ': ' + f.id + ' produced units from every unit queue it held a producer of for 2+ minutes (' + qs.join(', ') + ')' + (miss.length ? ' — none from ' + miss.join(', ') : ''));
+      const QU = qused[f.id] = qused[f.id] || {};
+      for (const q of f.queues) if (q.kind === 'unit' && made[q.id]) QU[q.id] = (QU[q.id] || 0) + 1;
+      const R = roles[f.id] = roles[f.id] || {};
+      for (const id in r.placed[i]) R[NT.DEFS[id].role] = true;
+      const b2 = r.brains[i];
+      for (const key in b2) if (typeof b2[key] === 'number') aiSum[key] = (aiSum[key] || 0) + b2[key];
+      for (const kind in b2.powers) aiSum['power:' + kind] = (aiSum['power:' + kind] || 0) + b2.powers[kind];
+      games[f.id] = (games[f.id] || 0) + 1;
+      if (r.winner === i) { const key = f.id + '>' + r.factions[1 - i]; wins[key] = (wins[key] || 0) + 1; }
+    }
+    capFlips += r.captured[0] + r.captured[1];
+    for (const d of r.denied) for (const why in d) denied[why] = (denied[why] || 0) + d[why];
+    ms += r.avgMs * r.ticks; steps += r.ticks; peak = Math.max(peak, r.peakEnts);
+    longest = Math.max(longest, r.minutes); shortest = Math.min(shortest, r.minutes);
+  }
+  const avg = ms / steps;
+  console.log('  ' + aiFacs.length * aiFacs.length * AI_SEEDS.length + ' matches in ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s: ' + shortest.toFixed(1) + ' - ' + longest.toFixed(1) +
+    ' sim min, avg ' + avg.toFixed(3) + ' ms per NT.step, peak ' + peak + ' entities');
+  console.log('  AI totals: ' + Object.keys(aiSum).map(k => k + ' ' + aiSum[k]).join(', ') + ', turf taken ' + capFlips);
+  console.log('  denied commands: ' + (Object.keys(denied).map(k => k + ' ' + denied[k]).join(', ') || 'none'));
+  check(stuckN === 0, 'no harvester sat still for 90 s while resource and a drop-off existed (' + stuckN + (stuckMsg ? ', first: ' + stuckMsg : '') + ')');
+  check(avg < 1.5, 'average step time within budget (' + avg.toFixed(3) + ' ms < 1.5 ms)');
+  for (const id of aiFacs) {
+    const I = NT.AI._info({ sys: {} }, NT.FACTIONS[id]), want = Object.keys(I.role).filter(r => r !== 'hq' && r !== 'turf');
+    const miss = want.filter(r => !roles[id][r]);
+    check(miss.length === 0, id + ': across its matches the AI placed every structure role it has (' + want.join(', ') + ')' + (miss.length ? ' — never ' + miss.join(', ') : ''));
+  }
+  for (const id of aiFacs) for (const q of NT.FACTIONS[id].queues) {
+    if (q.kind !== 'unit') continue;
+    const n = (qused[id] && qused[id][q.id]) || 0;
+    check(n >= games[id] * 0.85, id + ': units came out of its ' + q.id + ' queue in ' + n + ' of ' + games[id] + ' matches (>= 85%)');
+  }
+  for (const id of shipped) check((wins['tg>' + id] || 0) > 0, 'extensibility: the fixture faction wins at least sometimes against ' + id + ' (' + (wins['tg>' + id] || 0) + ' of ' + 2 * AI_SEEDS.length + ')');
+  check(capFlips > 0, 'turf actually changed hands to the AI (' + capFlips + ' captures)');
+  for (const key of ['waves', 'defends', 'captureOrders', 'retreats', 'repairs', 'expansions']) check(aiSum[key] > 0, 'the AI ' + key + ' in these matches (' + (aiSum[key] || 0) + ')');
+  check(Object.keys(aiSum).some(k => k.indexOf('power:') === 0), 'the AI fires support powers (' + Object.keys(aiSum).filter(k => k.indexOf('power:') === 0).map(k => k + ' ' + aiSum[k]).join(', ') + ')');
+  sound('ai vs ai');
+}
+
+section('ai: presets, determinism, difficulty');
+{
+  // every menu preset, both start slots, the shipped gangs
+  for (const m of NT.MAPS) for (const pair of [[shipped[0], shipped[1 % shipped.length]], [shipped[1 % shipped.length], shipped[0]]]) {
+    const w = NT.createWorld({ map: NT.MapGen.fromPreset(m.id), seed: 5, players: [{ faction: pair[0], ai: 'normal' }, { faction: pair[1], ai: 'normal' }] });
+    const n = go(w, AI_MAX_MIN * 60 * NT.TPS, x => x.over);
+    check(w.over && w.winner >= 0, m.id + ' (' + m.size + ') ' + pair.join(' v ') + ': ends with a winner (' + (n / NT.TPS / 60).toFixed(1) + ' min)');
+  }
+  // same seed, same match: identical world hashes every 30 s
+  const hashes = function () {
+    const out = [];
+    runMatch({ factions: [shipped[0], 'tg'], seed: 404, size: 'small', maxMin: 12, every: 600, onTick: function (w) { out.push(NT.hashWorld(w)); } });
+    return out;
+  };
+  const h1 = hashes(), h2 = hashes();
+  check(h1.length > 6 && h1.join() === h2.join(), 'an AI match run twice gives identical NT.hashWorld every 30 s (' + h1.length + ' samples)');
+  check(new Set(h1).size === h1.length, 'and the world really changes between samples');
+  // hard beats easy; easy still plays a real game
+  let hardWins = 0, easyIncome = 0;
+  for (const seed of [11, 12]) for (const flip of [0, 1]) {
+    const diff = flip ? ['easy', 'hard'] : ['hard', 'easy'];
+    const r = runMatch({ factions: flip ? [shipped[1 % shipped.length], shipped[0]] : [shipped[0], shipped[1 % shipped.length]], seed: seed, size: 'small', diff: diff, maxMin: AI_MAX_MIN });
+    if (r.winner >= 0 && diff[r.winner] === 'hard') hardWins++;
+    easyIncome += r.harvested[diff.indexOf('easy')];
+  }
+  check(hardWins >= 3, 'hard beats easy in at least 3 of 4 matches (' + hardWins + ')');
+  check(easyIncome > 0, 'easy harvests too (' + Math.round(easyIncome) + ')');
+  sound('ai presets');
+}
+
+section('ai: faction.ai hints are obeyed (opening, harvesters, attackAt) — set on the fixture for one match');
+{
+  const tg = NT.FACTIONS.tg, saved = tg.ai, power = tg.defs.find(d => d.role === 'power' && d.queue), prod = tg.defs.find(d => d.role === 'producer' && d.queue && d.requires.length);
+  const drop = tg.defs.find(d => d.traits.dropoff && d.queue), harv = tg.defs.find(d => d.traits.harvester);
+  const opening = [power.key, prod.key, power.key, drop.key];                 // differs from the generic order (drop-off first)
+  const play = function (hints) {
+    const out = { order: [], thr: 0, waveAt: -1, bought: 0 }, seen = {};
+    tg.ai = hints;
+    try {
+      const r = runMatch({ factions: ['tg', shipped[0]], seed: 77, size: 'small', maxMin: 10, every: 20, onTick: function (w) {
+        const B = NT.AI.brain(w, 0);
+        if (B && !out.thr) out.thr = NT.AI._threshold(w, B);
+        if (B && out.waveAt < 0 && B.stats.waves > 0) out.waveAt = w.tick;
+        for (const e of w.ents) if (e.alive && e.owner === 0 && e.kind === 'building' && e.def.queue === power.queue && !seen[e.id]) { seen[e.id] = true; out.order.push(e.def.key); }
+      } });
+      out.bought = r.produced[0][harv.id] || 0;                               // free drop-off harvesters emit no 'produced'
+    } finally { tg.ai = saved; }
+    return out;
+  };
+  const hinted = play({ opening: opening, harvesters: 1, attackAt: 0.5 }), plain = play({});
+  const order = hinted.order.slice(1, 5), thr = hinted.thr, waveAt = hinted.waveAt;   // order[0] is the start HQ
+  check(order.join() === opening.join(), 'opening hint: the first structures follow it (' + order.join(', ') + '; without hints: ' + plain.order.slice(1, 5).join(', ') + ')');
+  check(hinted.bought < plain.bought, 'harvesters hint (1 per drop-off) buys fewer harvesters than the default 3 (' + hinted.bought + ' vs ' + plain.bought + ')');
+  check(Math.abs(thr - NT.AI.LEVELS.normal.firstWave * 0.5) < 1e-9, 'attackAt 0.5 halves the first wave (' + thr + ')');
+  check(waveAt > 0, 'and a wave went out (' + (waveAt / NT.TPS / 60).toFixed(1) + ' min)');
+}
+
+section('ai: extensibility — no engine file names a shipped faction, unit, building or power');
+{
+  const fs = require('fs'), path = require('path'), root = path.join(__dirname, '..');
+  const ids = [], keys = new Set();
+  for (const id in NT.FACTIONS) {
+    if (!fs.existsSync(path.join(root, 'js', 'factions', id + '.js'))) continue;      // test fixtures are not shipped
+    const f = NT.FACTIONS[id];
+    ids.push(id);
+    for (const d of f.defs) keys.add(d.key);
+    for (const k in f.powers) keys.add(k);
+  }
+  // string literals of a source file, comments skipped
+  const literals = function (src) {
+    const out = [];
+    for (let i = 0; i < src.length; i++) {
+      const c = src[i];
+      if (c === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+      if (c === '/' && src[i + 1] === '*') { i = src.indexOf('*/', i + 2); if (i < 0) break; i++; continue; }
+      if (c !== "'" && c !== '"' && c !== '`') continue;
+      let j = i + 1, s = '';
+      while (j < src.length && src[j] !== c) { if (src[j] === '\\') { s += src[j + 1]; j += 2; } else s += src[j++]; }
+      out.push(s); i = j;
+    }
+    return out;
+  };
+  const scan = function (file, withKeys) {
+    const hits = [];
+    for (const s of literals(fs.readFileSync(path.join(root, file), 'utf8'))) {
+      if (ids.some(id => s === id || s.indexOf(id + '.') === 0) || (withKeys && keys.has(s))) hits.push(s);
+    }
+    return hits;
+  };
+  const probe = literals("x = 'a'; // '" + ids[0] + "'\n/* \"" + ids[0] + "\" */ y = \"" + ids[0] + ".k\"; z = `b`;");
+  check(probe.join('|') === 'a|' + ids[0] + '.k|b', 'the literal scanner reads strings and skips comments (' + probe.join('|') + ')');
+  const engine = require('./harness').files.filter(f => f.indexOf('js/factions/') !== 0);
+  check(engine.length > 10, 'engine = every data-sim file of index.html outside js/factions/ (' + engine.length + ')');
+  for (const f of engine) {
+    const hits = scan(f, true);
+    check(hits.length === 0, f + ': no shipped faction id / def key / power key as a string literal' + (hits.length ? ' — found ' + hits.join(', ') : ''));
+  }
+  // presentation files may share plain words with def keys (an art shape, a sound) but never name a faction
+  const pres = fs.readdirSync(path.join(root, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f).filter(f => engine.indexOf(f) < 0);
+  const presHits = [];
+  for (const f of pres) for (const h of scan(f, false)) presHits.push(f + ': ' + h);
+  check(presHits.length === 0, 'presentation files name no shipped faction id' + (presHits.length ? ' — ' + presHits.join(', ') : ''));
+}
+
 // ---------------------------------------------------------------------------
 section('build: every sim file listed in index.html exists');
 check(missing.length === 0, 'missing sim files: ' + missing.join(', '));

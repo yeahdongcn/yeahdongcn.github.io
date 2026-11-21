@@ -27,6 +27,8 @@ NT.defineFaction({
     { id: 'heavy', name: { en: 'Beasts', zh: '猛兽' }, kind: 'unit' },
   ],
   start: { buildings: [{ def: 'cage' }], units: [{ def: 'scrapper', n: 4 }] },
+  // Skirmish AI hints (shape: rules.js contract header): relative share of army value per unit.
+  ai: { army: { scrapper: 1, skewer: 0.8, strongarm: 0.3, canopener: 0.9, thrower: 0.7, champion: 2, alleycat: 0.8, bull: 1, butcherbird: 0.6 } },
 
   buildings: {
     cage: {
@@ -131,7 +133,7 @@ NT.defineFaction({
       tags: ['infantry', 'melee', 'support'], tier: 1, queue: 'infantry', cost: 350, hp: 130, armor: 'infantry',
       move: { type: 'foot', speed: 2.4 }, sight: 5,
       weapons: [{ name: { en: 'Brass knuckles', zh: '指虎' }, dmg: 14, range: 1.5, cooldown: 0.9, proj: 'melee', warhead: 'melee' }],
-      traits: { capturer: { time: 5, payout: 150 }, selfHeal: { rate: 0.03, delay: 5 } },
+      traits: { capturer: { time: 5, payout: 100 }, selfHeal: { rate: 0.03, delay: 5 } },
     },
     canopener: {
       name: { en: 'Can Opener', zh: '开罐手' },
@@ -156,9 +158,9 @@ NT.defineFaction({
     champion: {
       name: { en: 'Pit Champion', zh: '擂主' },
       desc: { en: 'Undefeated on the arena floor. Leaps into the line and makes every gang member nearby hit harder. One at a time.', zh: '擂台上的不败者。跃入敌阵，并让附近的帮众下手更狠。同时只能有一位。' },
-      tags: ['infantry', 'melee', 'hero', 'antiInfantry', 'uncrushable'], tier: 3, queue: 'infantry', cost: 1400, hp: 900, armor: 'infantry',
+      tags: ['infantry', 'melee', 'hero', 'antiInfantry', 'uncrushable'], tier: 3, queue: 'infantry', cost: 1400, hp: 800, armor: 'infantry',
       move: { type: 'foot', speed: 2.7 }, sight: 6, requires: ['cookhouse'], limit: 1,
-      weapons: [{ name: { en: 'Title-belt swing', zh: '金腰带横扫' }, dmg: 90, range: 1.6, cooldown: 1.3, proj: 'melee', warhead: 'melee', splash: 0.9 }],
+      weapons: [{ name: { en: 'Title-belt swing', zh: '金腰带横扫' }, dmg: 80, range: 1.6, cooldown: 1.3, proj: 'melee', warhead: 'melee', splash: 0.9 }],
       traits: {
         leap: { range: 5, minRange: 2, cooldown: 12, dmg: 60, warhead: 'melee' },
         aura: { radius: 4, affects: 'allies', mods: { dmg: 1.15, speed: 1.1 } },

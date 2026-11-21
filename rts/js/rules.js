@@ -28,8 +28,18 @@
 //   ],
 //   start: { buildings: [{ def: 'hq', at: [0, 0] }], units: [{ def: 'grunt', n: 3 }] },   // buildings[0] must be role 'hq'
 //   buildings: { <key>: BUILDING }, units: { <key>: UNIT }, powers: { <key>: POWER },
-//   ai: { ...optional hints, see ai.js... },
+//   ai: AI_HINTS,                       // optional: the skirmish AI plays any faction from generic data alone
 // });
+//
+// AI_HINTS {  // every field optional; unknown keys are ignored (read by js/ai.js only)
+//   opening: ['key', ...],        // structures queued first, in order (a repeated key = one more of it); power is
+//                                 // still topped up and missing prerequisites are built first. Ignored after 8 minutes.
+//   army: { <unitKey>: weight },  // relative share of army VALUE per fighter (armed, non-harvester unit). Replaces
+//                                 // the generic weights (tier / siege / scout / limit); 0 or absent = never built as
+//                                 // a fighter. The AI still adapts the weights to the enemy's mix and forces anti-air.
+//   harvesters: n,                // harvesters per drop-off (default 3; the difficulty level caps the total)
+//   attackAt: x,                  // multiplies the level's attack-wave army values (default 1; < 1 = earlier, smaller)
+// }
 //
 // BUILDING {
 //   name, desc: {en, zh}

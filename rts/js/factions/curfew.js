@@ -27,6 +27,8 @@ NT.defineFaction({
     { id: 'heavy', name: { en: 'Motor Pool', zh: '车场' }, kind: 'unit' },
   ],
   start: { buildings: [{ def: 'command' }], units: [{ def: 'picket', n: 4 }] },
+  // Skirmish AI hints (shape: rules.js contract header): relative share of army value per unit.
+  ai: { army: { picket: 1, stovepipe: 1, sweeper: 0.5, hydrant: 1, doorman: 1.4, mailman: 0.9, monument: 2 } },
 
   buildings: {
     command: {
@@ -97,7 +99,7 @@ NT.defineFaction({
       desc: { en: 'A plated garbage truck with a crane claw. Slow and stubborn; hauls big loads of Glint home.', zh: '加装钢板、带抓斗的垃圾车。又慢又倔，一趟能拉回大量碎金。' },
       tags: ['vehicle'], tier: 1, queue: 'heavy', cost: 1200, hp: 700, armor: 'heavy',
       move: { type: 'wheel', speed: 1.9 }, sight: 4, requires: ['qmyard'],
-      traits: { harvester: { capacity: 700, loadTime: 22, unloadTime: 4 } },
+      traits: { harvester: { capacity: 700, loadTime: 19, unloadTime: 4 } },
     },
     picket: {
       name: { en: 'Picket', zh: '街哨' },
@@ -118,8 +120,8 @@ NT.defineFaction({
     groundskeeper: {
       name: { en: 'Groundskeeper', zh: '地头蛇' },
       desc: { en: 'Knows every alley and every landlord. Claims turf for the Company and patches up people and vehicles. Unarmed.', zh: '认得每条巷子，也认得每个房东。为连队占领地盘，顺手救治人员、修理车辆。没有武器。' },
-      tags: ['infantry', 'support', 'healer'], tier: 1, queue: 'infantry', cost: 300, hp: 70, armor: 'infantry',
-      move: { type: 'foot', speed: 2.2 }, sight: 5,
+      tags: ['infantry', 'support', 'healer'], tier: 1, queue: 'infantry', cost: 300, hp: 100, armor: 'infantry',
+      move: { type: 'foot', speed: 2.5 }, sight: 5,
       weapons: [{ name: { en: 'Toolbox and first-aid kit', zh: '工具箱与急救包' }, dmg: 9, range: 2.5, cooldown: 0.5, proj: 'beam', warhead: 'small', heal: true, healTags: ['infantry', 'vehicle', 'drone'], fx: 'heal' }],
       traits: { capturer: { time: 5 } },
     },
