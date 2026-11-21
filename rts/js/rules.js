@@ -149,7 +149,7 @@ NT.RULES = {
 };
 
 // Team colours handed out when a faction's signature colour is already taken.
-NT.PLAYER_COLORS = ['#19e3ff', '#ff3d81', '#ffb21e', '#8dff3a', '#b07cff', '#f2f5fa'];
+NT.PLAYER_COLORS = ['#4f8cff', '#b07cff', '#8dff3a', '#ffb21e', '#ff3d81', '#f2f5fa'];   // no cyan: that is Glint
 
 // ---------------------------------------------------------------------------
 // Warheads: damage multiplier per armor class. final = dmg x WARHEADS[w][armor]
