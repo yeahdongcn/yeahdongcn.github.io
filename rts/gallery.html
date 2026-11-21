@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NEON TURF — art gallery (dev)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; background: #11141c; color: #cfd6e6; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  #bar { position: sticky; top: 0; z-index: 2; padding: 6px 10px; background: #0b0d14ee; border-bottom: 1px solid #262c3a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #bar b { color: #ff3d81; } #bar a { color: #19e3ff; text-decoration: none; margin-left: 10px; }
+  h2 { margin: 14px 10px 4px; font-size: 13px; font-weight: 600; color: #8f9bb6; letter-spacing: .08em; text-transform: uppercase; }
+  canvas { display: block; }
+  canvas.loupe { image-rendering: pixelated; image-rendering: crisp-edges; }
+  #bench { margin: 8px 10px; color: #9dff3a; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<!--
+  NEON TURF art gallery — a DEV page, not part of the game.
+  Loads the <script> tags of index.html in order (minus main / ui / input), then shows every registered
+  def through the same three NT.Art passes the renderer uses.
+    ?only=<factionId>[,<id>]   only these factions          ?def=<text>      only defs whose id contains text
+    ?kind=units|buildings      one half of each faction     ?zoom=<n>        scale of the large views (default 3 / 2)
+    ?freeze=<seconds>          one deterministic frame (screenshots)
+    ?loupe=<n>                 render at true 1x and magnify n times with hard pixels (judge the zoom-1 look)
+    ?bench                     run the drawEntity benchmark (also GALLERY.bench() in the console)
+    ?extra=<a.js,b.js>         load more scripts after the game's (faction data not yet listed in index.html)
+    ?a=<hex>&b=<hex>           override the two team colours   ?wob  let idle units turn slowly
+    ?budget=<Mpx>              sprite cache budget in megapixels (default: by device memory)   ?n= ?frames= ?bz=  benchmark size / zoom
+    ?demo / ?nodemo            force / suppress the built-in demo gang (it appears by itself while fewer than
+                               two playable factions are registered)
+-->
+<div id="bar"><b>NEON TURF</b> art gallery <span id="status">loading…</span></div>
+<pre id="bench"></pre>
+<div id="out"></div>
+<script>
+(async function () {
+  'use strict';
+  const q = new URLSearchParams(location.search), TAU = Math.PI * 2;
+  const FREEZE = q.has('freeze') ? (+q.get('freeze') || 0) : null, LOUPE = Math.max(0, +q.get('loupe') || 0);
+  const ZOOM = +q.get('zoom') || 0, ONLY = (q.get('only') || '').split(',').filter(Boolean), DEF = q.get('def') || '', KIND = q.get('kind') || '';
+  const DPR = LOUPE ? 1 : Math.min(3, window.devicePixelRatio || 1);
+  const BG = '#11141c', PAVE = '#262c3a', FONT = '11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  const status = function (s) { document.getElementById('status').textContent = s; };
+
+  // ---- 1. the game's own scripts, in index.html order ---------------------------------------------
+  const load = function (src) {
+    return new Promise(function (res) {
+      const s = document.createElement('script');
+      s.src = src; s.onload = function () { res(true); }; s.onerror = function () { res(false); };
+      document.head.appendChild(s);
+    });
+  };
+  const html = (await (await fetch('index.html', { cache: 'no-store' })).text()).replace(/<!--[\s\S]*?-->/g, '');
+  const srcs = [], missing = [];
+  html.replace(/<script\b[^>]*\bsrc="([^"]+)"/g, function (m, s) { srcs.push(s); return m; });
+  for (const s of srcs) {
+    if (/(^|\/)js\/(main|ui|input)\.js(\?|$)/.test(s)) continue;
+    if (!(await load(s))) missing.push(s);
+  }
+  for (const s of (q.get('extra') || '').split(',').filter(Boolean)) if (!(await load(s))) missing.push(s);
+  if (!window.NT || !NT.Art) { status('— NT.Art did not load (' + missing.join(', ') + ')'); return; }
+
+  // ---- 2. throwaway demo gang: exercises the rigs + the fallback renderer until real gangs exist ----
+  const N = function (en) { return { en: en, zh: en }; };
+  if (q.has('demo') || (NT.FACTION_LIST.length < 2 && !q.has('nodemo'))) {
+    const gun = { dmg: 10, range: 4.5, cooldown: 0.8, proj: 'bullet', warhead: 'small' };
+    NT.defineFaction({
+      id: 'demo', name: N('Demo gang — fallback art only'), color: '#19e3ff',
+      palette: { plate: '#5e6a58', dark: '#3d4640', trim: '#9099aa', skin: '#c9966f' },
+      queues: [{ id: 'b', name: N('Build'), kind: 'building' }, { id: 'd', name: N('Defence'), kind: 'building' },
+        { id: 'i', name: N('Infantry'), kind: 'unit' }, { id: 'v', name: N('Vehicles'), kind: 'unit' }],
+      start: { buildings: [{ def: 'hq' }], units: [{ def: 'rifleman', n: 2 }] },
+      buildings: {
+        hq: { name: N('HQ'), role: 'hq', cost: 3000, hp: 3000, size: [3, 3], power: 50, traits: { producer: { queues: ['b', 'd'] } } },
+        plant: { name: N('Power plant'), role: 'power', queue: 'b', cost: 300, hp: 500, size: [2, 2], power: 100 },
+        depot: { name: N('Scrap depot'), role: 'dropoff', queue: 'b', cost: 1800, hp: 1200, size: [3, 2], power: -20, traits: { dropoff: { freeUnit: 'harvester' } } },
+        barracks: { name: N('Barracks'), role: 'producer', queue: 'b', cost: 400, hp: 800, size: [3, 2], power: -10, traits: { producer: { queues: ['i'] } } },
+        factory: { name: N('Factory'), role: 'producer', queue: 'b', cost: 1800, hp: 1400, size: [3, 3], power: -30, traits: { producer: { queues: ['v'] } } },
+        radar: { name: N('Radar'), role: 'radar', queue: 'b', cost: 900, hp: 700, size: [2, 2], power: -30, traits: { radar: {} } },
+        lab: { name: N('Tech lab'), role: 'tech', queue: 'b', cost: 1500, hp: 1000, size: [3, 2], power: -40 },
+        doom: { name: N('Super weapon'), role: 'super', queue: 'b', cost: 2600, hp: 1300, size: [3, 3], power: -80 },
+        turret: { name: N('Turret tower'), role: 'defense', queue: 'd', cost: 500, hp: 600, size: [1, 1],
+          weapons: [{ dmg: 12, range: 5.5, cooldown: 0.3, proj: 'bullet', warhead: 'small', air: true, turret: true }] },
+        cannon: { name: N('Gun emplacement'), role: 'defense', queue: 'd', cost: 1100, hp: 1000, size: [2, 2], power: -40,
+          weapons: [{ dmg: 120, range: 7, cooldown: 2.4, proj: 'shell', warhead: 'ap', turret: true }] },
+        perch: { name: N('Thrower post'), role: 'defense', queue: 'd', cost: 450, hp: 500, size: [1, 1],
+          weapons: [{ dmg: 40, range: 5, cooldown: 1.8, proj: 'lob', warhead: 'he', splash: 1 }] },
+        shop: { name: N('Support hut'), role: 'support', queue: 'b', cost: 500, hp: 600, size: [2, 2] },
+      },
+      units: {
+        rifleman: { name: N('Rifleman'), tags: ['infantry'], queue: 'i', cost: 100, hp: 60, armor: 'infantry', move: { type: 'foot', speed: 2 }, weapons: [gun], traits: { brace: {} } },
+        rocketeer: { name: N('Rocketeer'), tags: ['infantry'], queue: 'i', cost: 280, hp: 65, armor: 'infantry', move: { type: 'foot', speed: 2 },
+          weapons: [{ dmg: 48, range: 5.5, cooldown: 2.5, proj: 'rocket', warhead: 'ap', air: true }] },
+        gunner: { name: N('Machine gunner'), tags: ['infantry'], queue: 'i', cost: 300, hp: 120, armor: 'infantry', move: { type: 'foot', speed: 1.8 },
+          weapons: [{ dmg: 9, range: 5, cooldown: 0.3, proj: 'bullet', warhead: 'small' }] },
+        medic: { name: N('Medic'), tags: ['infantry', 'healer'], queue: 'i', cost: 250, hp: 60, armor: 'infantry', move: { type: 'foot', speed: 2.1 },
+          weapons: [{ dmg: 9, range: 2.5, cooldown: 0.5, proj: 'beam', warhead: 'small', heal: true, healTags: ['organic'] }] },
+        thrower: { name: N('Spear thrower'), tags: ['infantry'], queue: 'i', cost: 200, hp: 70, armor: 'infantry', move: { type: 'foot', speed: 2.3 },
+          weapons: [{ dmg: 34, range: 4.5, cooldown: 1.8, proj: 'bullet', warhead: 'ap', speed: 14, air: true }] },
+        pup: { name: N('Scrapper'), tags: ['infantry', 'melee'], queue: 'i', cost: 100, hp: 75, armor: 'infantry', move: { type: 'foot', speed: 3 },
+          weapons: [{ dmg: 15, range: 1.5, cooldown: 0.7, proj: 'melee', warhead: 'melee' }] },
+        brawler: { name: N('Hulking brawler'), tags: ['infantry', 'melee'], queue: 'i', cost: 500, hp: 340, armor: 'infantry', move: { type: 'foot', speed: 2.2 },
+          weapons: [{ dmg: 55, range: 1.5, cooldown: 1.1, proj: 'melee', warhead: 'smash' }] },
+        champion: { name: N('Champion (hero)'), tags: ['infantry', 'melee', 'hero'], queue: 'i', cost: 1400, hp: 900, armor: 'infantry', move: { type: 'foot', speed: 2.7 },
+          weapons: [{ dmg: 100, range: 1.6, cooldown: 1.3, proj: 'melee', warhead: 'smash' }] },
+        hound: { name: N('Hound'), tags: ['beast', 'melee'], queue: 'v', cost: 220, hp: 95, armor: 'infantry', move: { type: 'beast', speed: 4.4, body: 'small' },
+          weapons: [{ dmg: 22, range: 1.5, cooldown: 0.7, proj: 'melee', warhead: 'melee' }] },
+        beast: { name: N('Big war beast'), tags: ['beast', 'melee', 'tank'], queue: 'v', cost: 900, hp: 720, armor: 'heavy', move: { type: 'beast', speed: 2.5 },
+          weapons: [{ dmg: 80, range: 1.5, cooldown: 1.6, proj: 'melee', warhead: 'smash' }] },
+        mount: { name: N('Pack beast'), tags: ['beast', 'melee'], queue: 'v', cost: 600, hp: 420, armor: 'light', move: { type: 'beast', speed: 3 },
+          weapons: [{ dmg: 40, range: 1.5, cooldown: 1.2, proj: 'melee', warhead: 'melee' }] },
+        lizard: { name: N('Siege lizard'), tags: ['beast', 'siege'], queue: 'v', cost: 1400, hp: 450, armor: 'light', move: { type: 'beast', speed: 1.7 },
+          weapons: [{ dmg: 110, range: 8.5, minRange: 2.5, cooldown: 4.5, proj: 'lob', warhead: 'fire', splash: 1.3 }] },
+        hog: { name: N('Harvest beast'), tags: ['beast'], queue: 'v', cost: 1000, hp: 600, armor: 'light', move: { type: 'beast', speed: 2.5 }, traits: { harvester: {} } },
+        pickup: { name: N('Pickup truck'), tags: ['vehicle'], queue: 'v', cost: 550, hp: 250, armor: 'light', move: { type: 'wheel', speed: 3.5 },
+          weapons: [{ dmg: 9, range: 5, cooldown: 0.3, proj: 'bullet', warhead: 'small', air: true, turret: true }] },
+        hose: { name: N('Water cannon'), tags: ['vehicle'], queue: 'v', cost: 650, hp: 380, armor: 'light', move: { type: 'wheel', speed: 2.5 },
+          weapons: [{ dmg: 3, range: 4.5, cooldown: 0.25, proj: 'flame', warhead: 'shock', turret: true }] },
+        mortar: { name: N('Mortar truck'), tags: ['vehicle', 'siege'], queue: 'v', cost: 1200, hp: 240, armor: 'light', move: { type: 'wheel', speed: 2 },
+          weapons: [{ dmg: 95, range: 9, minRange: 3, cooldown: 4.5, proj: 'lob', warhead: 'he', splash: 1.5, needsBrace: true }], traits: { brace: { delay: 2.5 } } },
+        harvester: { name: N('Harvester truck'), tags: ['vehicle'], queue: 'v', cost: 1200, hp: 700, armor: 'heavy', move: { type: 'wheel', speed: 1.9 }, traits: { harvester: {} } },
+        tank: { name: N('Tracked tank'), tags: ['vehicle', 'tank'], queue: 'v', cost: 900, hp: 560, armor: 'heavy', move: { type: 'track', speed: 2.3 },
+          weapons: [{ dmg: 70, range: 5.5, cooldown: 2.2, proj: 'shell', warhead: 'ap', turret: true }], traits: { crusher: {} } },
+        heavy: { name: N('Heavy tank'), tags: ['vehicle', 'tank'], queue: 'v', cost: 1700, hp: 1100, armor: 'heavy', move: { type: 'track', speed: 1.6 },
+          weapons: [{ dmg: 130, range: 6, cooldown: 2.8, proj: 'shell', warhead: 'ap', turret: true }, { dmg: 8, range: 4.5, cooldown: 0.3, proj: 'bullet', warhead: 'small', turret: true }] },
+        drone: { name: N('Drone'), tags: ['drone'], queue: 'v', cost: 600, hp: 100, armor: 'light', move: { type: 'air', speed: 4.2 },
+          weapons: [{ dmg: 12, range: 4.5, cooldown: 0.4, proj: 'bullet', warhead: 'small', air: true }] },
+        kite: { name: N('War bird'), tags: ['beast'], queue: 'v', cost: 550, hp: 150, armor: 'light', move: { type: 'air', speed: 4.4 },
+          weapons: [{ dmg: 28, range: 1.5, cooldown: 0.9, proj: 'melee', warhead: 'melee', air: true }] },
+      },
+    });
+  }
+
+  // ---- 3. scenes -----------------------------------------------------------------------------------
+  const A = NT.Art, scenes = [], out = document.getElementById('out');
+  if (q.has('budget')) A.budget = (+q.get('budget') || 20) * 1e6;   // ?budget=<megapixels>: test the cache governor
+  A.opts.rank = true;                                   // the game leaves rank marks to the renderer; show them here
+  const tr = function (o) { return NT.tr ? NT.tr(o) : (o && o.en) || ''; };
+  const hex = function (s, d) { return s && /^[0-9a-f]{6}$/i.test(s) ? '#' + s : d; };
+  const pulse = function (t, i) { const p = (((t * 0.9 + i * 0.37) % 1) + 1) % 1; return p < 0.3 ? 1 - p / 0.3 : 0; };
+  const wob = function (t, i) { return q.has('wob') ? Math.sin(t * 0.6 + i) * 0.35 : 0; };
+
+  function Scene(title, w, h) {
+    const h2 = document.createElement('h2'), cv = document.createElement('canvas'), k = LOUPE || 1;
+    h2.textContent = title; out.appendChild(h2); out.appendChild(cv);
+    cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
+    cv.style.width = w * k + 'px'; cv.style.height = h * k + 'px';
+    if (LOUPE) cv.className = 'loupe';
+    this.cv = cv; this.ctx = cv.getContext('2d'); this.w = w; this.h = h; this.items = []; this.under = []; this.over = [];
+    scenes.push(this);
+  }
+  Scene.prototype.add = function (def, x, y, zoom, fn) { this.items.push({ def: def, x: Math.round(x), y: Math.round(y), zoom: zoom, fn: fn, st: {} }); };
+  Scene.prototype.text = function (x, y, s, col) { this.over.push(function (c) { c.font = FONT; c.fillStyle = col || '#7783a0'; c.fillText(s, x, y); }); };
+  Scene.prototype.slab = function (x, y, w, h, col) { this.under.push(function (c) { c.fillStyle = col; c.fillRect(x, y, w, h); }); };
+  Scene.prototype.grid = function (x, y, cols, rows, cell) {
+    this.under.push(function (c) {
+      c.strokeStyle = 'rgba(120,140,180,0.10)'; c.lineWidth = 1; c.beginPath();
+      for (let i = 0; i <= cols; i++) { c.moveTo(x + i * cell + 0.5, y); c.lineTo(x + i * cell + 0.5, y + rows * cell); }
+      for (let j = 0; j <= rows; j++) { c.moveTo(x, y + j * cell + 0.5); c.lineTo(x + cols * cell, y + j * cell + 0.5); }
+      c.stroke();
+    });
+  };
+  Scene.prototype.icon = function (def, team, px, x, y) { this.over.push(function (c) { c.drawImage(A.icon(def, team, px), x, y, px, px); }); };
+  Scene.prototype.render = function (t) {
+    const c = this.ctx, items = this.items;
+    c.setTransform(DPR, 0, 0, DPR, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    c.fillStyle = BG; c.fillRect(0, 0, this.w, this.h);
+    for (const f of this.under) f(c, t);
+    for (const it of items) { it.fn(it.st, t); it.st.zoom = it.zoom * DPR; it.st.t = t; }
+    for (let pass = 0; pass < 3; pass++) {
+      c.globalCompositeOperation = pass === 2 ? 'lighter' : 'source-over';
+      for (const it of items) {
+        c.setTransform(DPR * it.zoom, 0, 0, DPR * it.zoom, it.x * DPR, it.y * DPR);
+        if (pass === 0) A.drawShadow(c, it.def, it.st); else if (pass === 1) A.drawEntity(c, it.def, it.st); else A.drawLights(c, it.def, it.st);
+      }
+    }
+    c.globalCompositeOperation = 'source-over'; c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    for (const f of this.over) f(c, t);
+  };
+
+  function unitScene(f, defs, tA, tB) {
+    const ZB = ZOOM || 3, P1 = 40, PB = Math.round(40 * ZB), X1 = 176, XB = X1 + 8 * P1 + 28, rowH = Math.max(2 * P1 + 18, PB + 10);
+    const sc = new Scene(tr(f.name) + ' — units  (1x: walking / idle + firing on pavement · ' + ZB + 'x: even = walking, odd = firing; #6 ghost, #7 hit flash)',
+      Math.max(1560, XB + 8 * PB + 90), 12 + defs.length * rowH);
+    defs.forEach(function (def, r) {
+      const y0 = 6 + r * rowH, b = A.bounds(def);
+      sc.text(8, y0 + 16, tr(def.name), '#cfd6e6'); sc.text(8, y0 + 30, def.id);
+      sc.text(8, y0 + 44, def.move.type + ' · ' + def.body + ' · ' + Math.round(b.w) + 'px' + (def.art ? '' : ' · fallback'));
+      sc.text(8, y0 + 58, def.tags.filter(function (t) { return !/^anti|organic|mechanical/.test(t); }).join(' '));
+      sc.slab(X1 - 4, y0 + P1 + 2, 8 * P1 + 8, P1, PAVE);
+      sc.slab(XB + 6 * PB, y0 + 2, 2 * PB, rowH - 4, PAVE);
+      for (let i = 0; i < 8; i++) {
+        const face = i * Math.PI / 4;
+        sc.add(def, X1 + P1 / 2 + i * P1, y0 + 2 + P1 / 2, 1, function (st, t) {
+          st.team = tA; st.facing = st.aim = face; st.moving = true; st.walk = (t * 1.4 + i * 0.13) % 1; st.fire = 0; st.seed = i; st.cargo = 0; st.hp = 1;
+        });
+        sc.add(def, X1 + P1 / 2 + i * P1, y0 + 2 + P1 * 1.5, 1, function (st, t) {
+          st.team = tB; st.facing = face + wob(t, i); st.aim = st.facing + Math.sin(t * 1.1 + i) * 0.9; st.moving = false; st.walk = 0;
+          st.fire = pulse(t, i); st.deployed = i >= 4; st.cargo = i / 7; st.seed = i; st.hp = 1;
+        });
+        sc.add(def, XB + PB / 2 + i * PB, y0 + rowH / 2, ZB, function (st, t) {
+          const walk = i % 2 === 0;
+          st.team = walk ? tA : tB; st.facing = face + (walk ? 0 : wob(t, i)); st.aim = walk ? face : st.facing + Math.sin(t * 1.1 + i) * 0.9;
+          st.moving = walk; st.walk = (t * 1.4 + i * 0.13) % 1; st.fire = walk ? 0 : pulse(t, i); st.rank = i % 3; st.seed = i; st.hp = 1;
+          st.flash = i === 7 ? pulse(t + 0.4, 3) : 0; st.ghost = i === 6 ? 0.5 : 1; st.cargo = i / 7; st.deployed = i === 3 || i === 5;
+        });
+      }
+      sc.icon(def, tA, 64, XB + 8 * PB + 12, y0 + 4); sc.icon(def, tB, 40, XB + 8 * PB + 12, y0 + 74);
+    });
+    return sc;
+  }
+
+  function buildingScene(f, defs, teams) {
+    const ZB = ZOOM || 2, X1 = 176;
+    let y = 8;
+    const rows = defs.map(function (def) {
+      const b = A.bounds(def), vw = Math.max(b.x1 - b.x0, def.size[0] * 32) + 46, vh = (b.y1 - b.y0) + 40, row = { def: def, b: b, y: y, vw: vw, vh: vh, h: Math.max(vh * ZB, 150) + 14 };
+      y += row.h;
+      return row;
+    });
+    const wide = rows.reduce(function (m, r) { return Math.max(m, X1 + 2 * r.vw + 20 + 4 * r.vw * ZB + 100); }, 1560);
+    const sc = new Scene(tr(f.name) + ' — buildings  (1x: two owners · ' + ZB + 'x: healthy + active, damaged, wrecked, unpowered · icons)', wide, y + 8);
+    rows.forEach(function (row, r) {
+      const def = row.def, b = row.b, W = def.size[0] * 32, H = def.size[1] * 32, y0 = row.y, cy = function (z) { return y0 + (16 - b.y0) * z + 6; };
+      const tA = teams[0], tB = teams[1], tC = teams[2] || teams[0], XB = X1 + 2 * row.vw + 20;
+      sc.text(8, y0 + 16, tr(def.name), '#cfd6e6'); sc.text(8, y0 + 30, def.id);
+      sc.text(8, y0 + 44, def.role + ' · ' + def.size[0] + 'x' + def.size[1] + ' · up ' + Math.round(b.up) + (def.art ? '' : ' · fallback'));
+      const put = function (x, z, team, fn) {
+        sc.grid(Math.round(x - W / 2 * z), Math.round(cy(z) - H / 2 * z), def.size[0], def.size[1], 32 * z);
+        sc.add(def, x, cy(z), z, function (st, t) {
+          st.team = team; st.facing = Math.PI / 2; st.aim = Math.PI / 2 + Math.sin(t * 0.8 + r) * 1.2; st.hp = 1; st.powered = true; st.active = false;
+          st.fire = def.weapons.length ? pulse(t, r) : 0; st.seed = r; st.ghost = 1; st.flash = 0;
+          if (fn) fn(st, t);
+        });
+      };
+      put(X1 + row.vw / 2, 1, tA); put(X1 + row.vw * 1.5, 1, tB);
+      sc.slab(XB + row.vw * ZB, y0, row.vw * ZB, row.h - 6, PAVE);
+      put(XB + row.vw * ZB * 0.5, ZB, tA, function (st) { st.active = true; });
+      put(XB + row.vw * ZB * 1.5, ZB, tB, function (st) { st.hp = 0.5; st.seed = r + 1; });
+      put(XB + row.vw * ZB * 2.5, ZB, tC, function (st) { st.hp = 0.2; st.seed = r + 2; });
+      put(XB + row.vw * ZB * 3.5, ZB, tA, function (st) { st.powered = false; st.seed = r + 3; });
+      const xi = XB + row.vw * ZB * 4 + 10;
+      sc.icon(def, tA, 64, xi, y0 + 4); sc.icon(def, tB, 48, xi, y0 + 76);
+    });
+    return sc;
+  }
+
+  const want = function (def) { return !DEF || def.id.indexOf(DEF) >= 0; };
+  const ids = Object.keys(NT.FACTIONS).sort(function (a, b) { return (NT.FACTIONS[a].playable ? 1 : 0) - (NT.FACTIONS[b].playable ? 1 : 0); });
+  for (const id of ids) {
+    if (ONLY.length && ONLY.indexOf(id) < 0) continue;
+    const f = NT.FACTIONS[id], alt = NT.PLAYER_COLORS.filter(function (c) { return c.toLowerCase() !== f.color.toLowerCase(); });
+    const tA = hex(q.get('a'), f.playable ? f.color : f.color), tB = hex(q.get('b'), f.playable ? (alt[1] || '#ff3d81') : NT.PLAYER_COLORS[0]);
+    const units = f.defs.filter(function (d) { return d.kind === 'unit' && want(d); }), blds = f.defs.filter(function (d) { return d.kind === 'building' && want(d); });
+    if (blds.length && KIND !== 'units') buildingScene(f, blds, f.playable ? [tA, tB] : [tA, tB, NT.PLAYER_COLORS[1]]);
+    if (units.length && KIND !== 'buildings') unitScene(f, units, tA, tB);
+  }
+
+  // ---- 4. benchmark: 300 entities x 100 frames through all three passes -----------------------------
+  function bench(n, frames, zoom) {
+    n = n || 300; frames = frames || 100; zoom = zoom || 1;
+    const defs = Object.keys(NT.DEFS).map(function (k) { return NT.DEFS[k]; }), units = defs.filter(function (d) { return d.kind === 'unit'; });
+    const blds = defs.filter(function (d) { return d.kind === 'building'; }), rng = new NT.Rng(1234), teams = ['#19e3ff', '#ff3d81'];
+    const cv = document.createElement('canvas'), W = 1600, H = 900;
+    cv.width = W; cv.height = H;
+    const c = cv.getContext('2d'), ents = [];
+    for (let i = 0; i < n; i++) {
+      const isB = !units.length || (blds.length && i % 6 === 0), def = isB ? rng.pick(blds) : rng.pick(units);
+      ents.push({ def: def, x: Math.round(rng.range(40, W - 40)), y: Math.round(rng.range(60, H - 40)), turn: rng.chance(0.25),
+        st: { team: teams[i % 2], facing: rng.int(8) * Math.PI / 4, aim: rng.range(0, TAU), t: rng.range(0, 9), moving: rng.chance(0.6), walk: rng.next(), fire: 0,
+          hp: isB ? rng.pick([1, 1, 1, 0.5, 0.2]) : 1, powered: true, active: rng.chance(0.3), cargo: rng.next(), seed: i, zoom: zoom, rank: rng.int(3) } });
+    }
+    const pass = function (flush) {
+      const s0 = Object.assign({}, A.stats), t0 = performance.now();
+      for (let f = 0; f < frames; f++) {
+        c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.fillStyle = BG; c.fillRect(0, 0, W, H);
+        for (const e of ents) {
+          const st = e.st;
+          st.t += 1 / 60; st.walk = (st.walk + 0.03) % 1; st.aim += 0.02; st.fire = Math.max(0, st.fire - 0.08);
+          if (e.turn) st.facing += 0.03;
+          if (((f + st.seed) % 40) === 0) st.fire = 1;
+        }
+        for (let p = 0; p < 3; p++) {
+          c.globalCompositeOperation = p === 2 ? 'lighter' : 'source-over';
+          for (const e of ents) {
+            c.setTransform(zoom, 0, 0, zoom, e.x, e.y);
+            if (p === 0) A.drawShadow(c, e.def, e.st); else if (p === 1) A.drawEntity(c, e.def, e.st); else A.drawLights(c, e.def, e.st);
+          }
+        }
+        if (flush) c.getImageData(0, 0, 1, 1);          // force the rasteriser to finish the frame
+      }
+      const ms = (performance.now() - t0) / frames, s1 = A.stats;
+      return { msPerFrame: +ms.toFixed(3), hits: s1.hits - s0.hits, misses: s1.misses - s0.misses, bakeMs: +(s1.bakeMs - s0.bakeMs).toFixed(1) };
+    };
+    const cold = pass(true), warm = pass(true), warm2 = pass(true), noFlush = pass(false);
+    return { entities: n, frames: frames, zoom: zoom, defs: defs.length, cold: cold, warm: warm, warm2: warm2, warmNoFlush: noFlush,
+      canvases: A.stats.canvases, megapixels: +(A.stats.pixels / 1e6).toFixed(2), evictions: A.stats.evictions, cap: A.stats.cap, budgetMpx: A.budget / 1e6 };
+  }
+
+  // ---- 5. run ------------------------------------------------------------------------------------------
+  const G = window.GALLERY = { scenes: scenes, bench: bench, ready: false, missing: missing, t: 0 };
+  const visible = function (sc) { const r = sc.cv.getBoundingClientRect(); return r.bottom > -200 && r.top < innerHeight + 200; };
+  const info = function () {
+    const s = A.stats;
+    status('— ' + Object.keys(NT.DEFS).length + ' defs · cache ' + s.canvases + ' sprites, ' + (s.pixels / 1e6).toFixed(1) + ' Mpx, ' + s.hits + ' hits / ' + s.misses +
+      ' misses, ' + s.evictions + ' evicted, bake ' + s.bakeMs.toFixed(0) + ' ms' + (missing.length ? ' · MISSING: ' + missing.join(', ') : '') + (FREEZE !== null ? ' · frozen at ' + FREEZE + 's' : ''));
+  };
+  if (FREEZE !== null) { for (const sc of scenes) sc.render(FREEZE); G.t = FREEZE; info(); }
+  else {
+    const t0 = performance.now();
+    let n = 0;
+    const tick = function (now) {
+      G.t = (now - t0) / 1000;
+      for (const sc of scenes) if (visible(sc)) sc.render(G.t);
+      if (n++ % 30 === 0) info();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  if (q.has('bench')) { G.benchResult = bench(+q.get('n') || 300, +q.get('frames') || 100, +q.get('bz') || 1); document.getElementById('bench').textContent = JSON.stringify(G.benchResult, null, 1); }
+  G.ready = true;
+})().catch(function (e) { document.getElementById('status').textContent = '— gallery failed: ' + e.message; console.error(e); });
+</script>
+</body>
+</html>

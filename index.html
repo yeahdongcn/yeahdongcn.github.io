@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>NIGHT CITY — Choose Your Lens</title>
+<title>NIGHT CITY · NEON TURF — Play in Your Browser</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="NIGHT CITY — a browser Cyberpunk action game in two styles: PIXEL (top-down 8-bit) and 2.5D (Diablo-style isometric). One save, shared across both.">
+<meta name="description" content="NIGHT CITY — a browser Cyberpunk action game in two styles: PIXEL (top-down 8-bit) and 2.5D (Diablo-style isometric), one save shared across both. Plus NEON TURF — an original base-building real-time strategy game of gang warfare.">
 <meta name="theme-color" content="#07070d">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2307070d'/%3E%3Crect x='2' y='2' width='5' height='5' fill='%2300ff9f'/%3E%3Crect x='9' y='9' width='5' height='5' fill='%23f5b942'/%3E%3Crect x='9' y='2' width='5' height='5' fill='%23ff2a6d'/%3E%3Crect x='2' y='9' width='5' height='5' fill='%2305d9e8'/%3E%3C/svg%3E">
 <style>
@@ -165,6 +165,38 @@
   #readout b{color:var(--green)} #readout .sep{color:#39414f}
   @keyframes pulse{50%{opacity:.35; transform:scale(.82)}}
 
+  /* ---------- NEON TURF: a separate game, not a lens ---------- */
+  .also{width:100%; max-width:960px; z-index:1; margin-top:clamp(24px,3.6vw,44px)}
+  .rule{display:flex; align-items:center; gap:14px; margin:0 0 14px; color:var(--mag);
+    font-size:12px; letter-spacing:.34em; white-space:nowrap}
+  .rule::before,.rule::after{content:""; flex:1; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(255,42,109,.55), transparent)}
+  .card.turf{--acc:var(--mag); display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);
+    max-width:none; min-width:0; border-radius:0}
+  .card.turf::before{content:""; position:absolute; z-index:3; inset:6px; pointer-events:none;
+    border:1px solid rgba(255,42,109,.4);
+    -webkit-mask:
+      linear-gradient(#000,#000) 0 0/22px 1px no-repeat, linear-gradient(#000,#000) 0 0/1px 22px no-repeat,
+      linear-gradient(#000,#000) 100% 100%/22px 1px no-repeat, linear-gradient(#000,#000) 100% 100%/1px 22px no-repeat;
+    mask:
+      linear-gradient(#000,#000) 0 0/22px 1px no-repeat, linear-gradient(#000,#000) 0 0/1px 22px no-repeat,
+      linear-gradient(#000,#000) 100% 100%/22px 1px no-repeat, linear-gradient(#000,#000) 100% 100%/1px 22px no-repeat}
+  .card.turf .shot{aspect-ratio:auto; min-height:260px; border-bottom:0; border-right:1px solid rgba(255,255,255,.07)}
+  .card.turf .shot::after{background:linear-gradient(90deg, transparent 62%, rgba(13,13,23,.9))}
+  .card.turf .body{display:flex; flex-direction:column; justify-content:center;
+    background:radial-gradient(120% 90% at 100% 0%, rgba(255,42,109,.09), transparent 60%), var(--panel)}
+  .card.turf h2{font-style:italic; color:#fff; text-shadow:0 0 22px rgba(255,42,109,.6), 2px 2px 0 rgba(5,217,232,.35)}
+  .card.turf .cta{border-radius:0; color:#fff;
+    clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))}
+  .chev{width:10px; height:10px; border:2px solid var(--mag); border-left:0; border-bottom:0; transform:rotate(45deg);
+    filter:drop-shadow(0 0 5px var(--mag))} .chev:nth-child(2){opacity:.6} .chev:nth-child(3){opacity:.3}
+  @media (max-width:760px){
+    .card.turf{grid-template-columns:1fr}
+    .card.turf .shot{aspect-ratio:16/9; min-height:0; border-right:0; border-bottom:1px solid rgba(255,255,255,.07)}
+    .card.turf .shot::after{background:linear-gradient(180deg, transparent 40%, rgba(13,13,23,.92))}
+    .rule{letter-spacing:.2em}
+  }
+
   footer{margin-top:auto; padding-top:26px; text-align:center; color:var(--dim);
     font-size:11.5px; letter-spacing:.14em; z-index:1}
   footer a{color:var(--cyan); text-decoration:none} footer a:hover{text-decoration:underline}
@@ -226,6 +258,23 @@
     <p>Your level, eddies, weapons &amp; rides are <b>shared</b> — hit Level 25 in Pixel, walk into 2.5D already legendary. Same save, either style.</p>
   </div>
   <div id="readout"><span class="dot"></span><span id="readout-text">SCANNING FOR SAVE…</span></div>
+</section>
+
+<section class="also" aria-labelledby="also-h">
+  <p class="rule"><span id="also-h">NEW · A DIFFERENT KIND OF WAR</span></p>
+  <a class="card turf" href="rts/" aria-label="Play NEON TURF, an original real-time strategy game">
+    <div class="shot">
+      <span class="badge">NEW · RTS</span>
+      <span class="emblem"><i class="chev"></i><i class="chev"></i><i class="chev"></i></span>
+      <img src="img/rts.png" alt="NEON TURF — two gangs fighting over a rain-slick neon city block, seen from above" loading="lazy" width="1280" height="720">
+    </div>
+    <div class="body">
+      <div class="lensname"><h2>NEON TURF</h2><span class="sub">REAL-TIME STRATEGY · 霓虹地盘</span></div>
+      <p class="vibe">Stop walking the streets — <em>run them</em>. Harvest Glint, raise a base, claim the block's businesses and break the rival gang. An original base-building RTS with two gangs that play nothing alike.</p>
+      <div class="chips"><span class="chip">BASE BUILDING</span><span class="chip">2 GANGS</span><span class="chip">SKIRMISH VS AI</span><span class="chip">EN / 中文</span></div>
+      <div class="cta"><span>TAKE COMMAND</span><span class="arrow">▶</span></div>
+    </div>
+  </a>
 </section>
 
 <footer>

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NEON TURF — map viewer (dev)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #07080c; color: #cfd6e6; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #view.drag { cursor: grabbing; }
+  #bar { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; gap: 10px; align-items: center; padding: 5px 10px; background: #0b0d14e6; border-bottom: 1px solid #262c3a; white-space: nowrap; overflow: hidden; }
+  #bar b { color: #ff3d81; }
+  #bar select, #bar input, #bar button { font: inherit; color: #cfd6e6; background: #161a24; border: 1px solid #2c3444; border-radius: 3px; padding: 1px 5px; }
+  #bar input { width: 6em; }
+  #bar label { color: #8f9bb6; }
+  #bar button.on { color: #19e3ff; border-color: #19e3ff88; }
+  #info { margin-left: auto; color: #8f9bb6; overflow: hidden; text-overflow: ellipsis; }
+  #mini { position: absolute; right: 10px; bottom: 10px; z-index: 2; border: 1px solid #2c3444; background: #07080c; image-rendering: pixelated; cursor: crosshair; }
+  #out { position: absolute; left: 10px; bottom: 10px; z-index: 2; margin: 0; color: #9dff3a; background: #0b0d14e6; padding: 6px 8px; white-space: pre; display: none; }
+  body.bare #bar, body.bare #mini { display: none; }
+</style>
+</head>
+<body>
+<!--
+  NEON TURF map viewer — a DEV page, not part of the game: preview a map exactly as the game's ground layer shows it.
+  Loads the <script> tags of index.html in order (minus main / ui / input / render), builds a map and draws it with
+  NT.Terrain only, in the renderer's pass order: ground, shadows, resources, props low, blocks, props high, lights.
+    ?map=<preset id>               a menu preset (NT.MAPS)      ?seed=<n>&size=small|medium|large   a generated map
+    ?x=<px>&y=<px>&zoom=<n>        camera centre in world px + zoom (default: map centre, zoom 1)
+    ?freeze=<seconds>              stop the clock at that time (deterministic screenshots); MAPVIEW.ready turns true
+                                   once every visible raster is baked
+    ?marks  ?grid  ?nolights       start with the overlays on / the additive pass off      ?bare   hide the page chrome
+    ?drain=<0..1>                  harvest that share out of every Glint cell (to look at the fill levels)
+    ?dpr=<n>                       override devicePixelRatio     ?bench   run MAPVIEW.bench() and print the numbers
+  Drag = pan · wheel = zoom at the cursor · arrows / + - · G grid · M marks · L lights · 0 whole map
+-->
+<canvas id="view"></canvas>
+<div id="bar">
+  <b>NEON TURF</b> map viewer
+  <label>preset <select id="preset"></select></label>
+  <label>seed <input id="seed" inputmode="numeric"></label>
+  <select id="size"><option>small</option><option>medium</option><option>large</option></select>
+  <button id="go">generate</button>
+  <button id="bGrid" title="G">grid</button><button id="bMarks" title="M">marks</button><button id="bLights" title="L">lights</button>
+  <span id="info">loading…</span>
+</div>
+<canvas id="mini"></canvas>
+<pre id="out"></pre>
+<script>
+(async function () {
+  'use strict';
+  const q = new URLSearchParams(location.search), $ = function (id) { return document.getElementById(id); };
+  const FREEZE = q.has('freeze') ? (+q.get('freeze') || 0) : null;
+  const DPR = +q.get('dpr') || Math.min(3, window.devicePixelRatio || 1);
+  const info = function (s) { $('info').textContent = s; };
+  if (q.has('bare')) document.body.className = 'bare';
+
+  // ---- 1. the game's own scripts, in index.html order ---------------------------------------------
+  const load = function (src) {
+    return new Promise(function (res) {
+      const s = document.createElement('script');
+      s.src = src; s.onload = function () { res(true); }; s.onerror = function () { res(false); };
+      document.head.appendChild(s);
+    });
+  };
+  const html = (await (await fetch('index.html', { cache: 'no-store' })).text()).replace(/<!--[\s\S]*?-->/g, '');
+  const srcs = [], missing = [];
+  html.replace(/<script\b[^>]*\bsrc="([^"]+)"/g, function (m, s) { srcs.push(s); return m; });
+  for (const s of srcs) {
+    if (/(^|\/)js\/(main|ui|input|render)\.js(\?|$)/.test(s)) continue;
+    if (!(await load(s))) missing.push(s);
+  }
+  if (!window.NT || !NT.Terrain || !NT.Terrain.drawGround || !NT.MapGen) { info('NT.Terrain / NT.MapGen did not load ' + missing.join(', ')); return; }
+
+  // ---- 2. the map ------------------------------------------------------------------------------------
+  const TR = NT.Terrain, TILE = NT.TILE, cv = $('view'), ctx = cv.getContext('2d'), mini = $('mini'), mctx = mini.getContext('2d');
+  const cam = { x: 0, y: 0, zoom: 1 }, show = { grid: q.has('grid'), marks: q.has('marks'), lights: !q.has('nolights') };
+  const view = { x0: 0, y0: 0, x1: 0, y1: 0, zoom: 1, dpr: DPR, t: 0 };
+  let map = null, W = 0, H = 0, dirty = true, hover = null;
+  const ZMIN = 0.2, ZMAX = 4;
+
+  function openMap(opts, keepCam) {
+    map = opts.map ? NT.MapGen.fromPreset(opts.map) : NT.MapGen.generate({ seed: opts.seed, size: opts.size });
+    const drain = NT.clamp(+q.get('drain') || 0, 0, 1);
+    if (drain) for (let i = 0; i < map.res.length; i++) map.res[i] = Math.round(map.res[i] * (1 - drain * ((i * 7919) % 11) / 10));
+    TR.build(map);
+    if (!keepCam) { cam.x = map.w * TILE / 2; cam.y = map.h * TILE / 2; cam.zoom = 1; }
+    const m = Math.max(1, Math.floor(176 / map.w));
+    mini.width = map.w; mini.height = map.h; mini.style.width = map.w * m + 'px'; mini.style.height = map.h * m + 'px';
+    $('preset').value = opts.map || ''; $('seed').value = map.seed; $('size').value = opts.size || sizeOf(map);
+    dirty = true;
+  }
+  function sizeOf(m) { for (const k in NT.MapGen.SIZES) if (NT.MapGen.SIZES[k] === m.w) return k; return 'medium'; }
+  function link() {
+    const p = new URLSearchParams(location.search);
+    if ($('preset').value) { p.set('map', $('preset').value); p.delete('seed'); p.delete('size'); }
+    else { p.delete('map'); p.set('seed', map.seed); p.set('size', sizeOf(map)); }
+    p.set('x', Math.round(cam.x)); p.set('y', Math.round(cam.y)); p.set('zoom', +cam.zoom.toFixed(3));
+    history.replaceState(null, '', '?' + p.toString().replace(/=(&|$)/g, '$1'));
+  }
+
+  // ---- 3. one frame: exactly the renderer's terrain passes ----------------------------------------------
+  function setView(c, w, h, t) {
+    const k = cam.zoom * DPR;
+    view.zoom = cam.zoom; view.t = t;
+    view.x0 = Math.round((cam.x - w / 2 / cam.zoom) * k) / k; view.y0 = Math.round((cam.y - h / 2 / cam.zoom) * k) / k;   // camera snapped to device px
+    view.x1 = view.x0 + w / cam.zoom; view.y1 = view.y0 + h / cam.zoom;
+    c.setTransform(k, 0, 0, k, -view.x0 * k, -view.y0 * k);
+  }
+  function passes(c, lights) {
+    TR.drawGround(c, view);
+    TR.shadowsFor(c, view);
+    TR.drawResources(c, view, map);
+    TR.drawPropsLow(c, view);
+    const items = TR.blocks(view).sort(function (a, b) { return a.y - b.y; });
+    for (const it of items) it.draw(c);
+    TR.drawPropsHigh(c, view);
+    if (lights) { c.globalCompositeOperation = 'lighter'; TR.drawLights(c, view); c.globalCompositeOperation = 'source-over'; }
+  }
+  function frame(t) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#07080c'; ctx.fillRect(0, 0, cv.width, cv.height);
+    setView(ctx, W, H, t);
+    passes(ctx, show.lights);
+    if (show.grid) grid();
+    if (show.marks) marks();
+    minimap();
+  }
+
+  // ---- 4. overlays for map authors ---------------------------------------------------------------------
+  function grid() {
+    const x0 = Math.max(0, Math.floor(view.x0 / TILE)), y0 = Math.max(0, Math.floor(view.y0 / TILE));
+    const x1 = Math.min(map.w, Math.ceil(view.x1 / TILE)), y1 = Math.min(map.h, Math.ceil(view.y1 / TILE));
+    ctx.lineWidth = 1 / (cam.zoom * DPR); ctx.strokeStyle = 'rgba(140,170,220,0.22)'; ctx.beginPath();
+    for (let x = x0; x <= x1; x++) { ctx.moveTo(x * TILE, y0 * TILE); ctx.lineTo(x * TILE, y1 * TILE); }
+    for (let y = y0; y <= y1; y++) { ctx.moveTo(x0 * TILE, y * TILE); ctx.lineTo(x1 * TILE, y * TILE); }
+    ctx.stroke();
+  }
+  function tag(x, y, s, col) {
+    const k = 1 / cam.zoom;
+    ctx.font = 11 * k + 'px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = 'rgba(7,8,12,0.75)'; ctx.fillRect(x, y - 12 * k, ctx.measureText(s).width + 6 * k, 15 * k);
+    ctx.fillStyle = col; ctx.fillText(s, x + 3 * k, y - 1 * k);
+  }
+  function marks() {
+    const lw = 2 / cam.zoom;
+    ctx.lineWidth = lw;
+    map.starts.forEach(function (s, i) {
+      ctx.strokeStyle = NT.PLAYER_COLORS[i] || '#fff'; ctx.strokeRect(s.cx * TILE, s.cy * TILE, 3 * TILE, 3 * TILE);
+      tag(s.cx * TILE, s.cy * TILE - 3 / cam.zoom, 'start ' + (i + 1), NT.PLAYER_COLORS[i] || '#fff');
+    });
+    for (const n of map.neutrals) {
+      const d = NT.DEFS && NT.DEFS[n.def], sz = (d && d.size) || [1, 1];
+      ctx.strokeStyle = '#8d97ad'; ctx.strokeRect(n.cx * TILE, n.cy * TILE, sz[0] * TILE, sz[1] * TILE);
+      tag(n.cx * TILE, n.cy * TILE - 3 / cam.zoom, n.def, '#cfd6e6');
+    }
+    ctx.setLineDash([6 / cam.zoom, 5 / cam.zoom]);
+    for (const s of map.spawners) {
+      ctx.strokeStyle = 'rgba(95,232,214,0.8)'; ctx.beginPath(); ctx.arc((s.cx + 0.5) * TILE, (s.cy + 0.5) * TILE, s.radius * TILE, 0, Math.PI * 2); ctx.stroke();
+      tag((s.cx + 0.5) * TILE + 4 / cam.zoom, (s.cy + 0.5) * TILE, '+' + s.rate + '/s', '#5fe8d6');
+    }
+    ctx.setLineDash([]);
+  }
+  function minimap() {
+    mctx.drawImage(TR.minimap(map), 0, 0);
+    mctx.strokeStyle = '#ffffff'; mctx.lineWidth = 1;
+    mctx.strokeRect(view.x0 / TILE + 0.5, view.y0 / TILE + 0.5, (view.x1 - view.x0) / TILE - 1, (view.y1 - view.y0) / TILE - 1);
+  }
+  function readout() {
+    const s = TR.stats, parts = [map.name, map.w + 'x' + map.h, 'seed ' + map.seed, 'zoom ' + cam.zoom.toFixed(2)];
+    if (hover) {
+      const cx = Math.floor(hover[0] / TILE), cy = Math.floor(hover[1] / TILE);
+      if (NT.Map.inBounds(map, cx, cy)) {
+        const i = cy * map.w + cx, b = map.blocks.find(function (b) { return cx >= b.x && cy >= b.y && cx < b.x + b.w && cy < b.y + b.h; });
+        parts.push('cell ' + cx + ',' + cy + ' ' + NT.TERRAIN_INFO[map.terrain[i]].key + (map.resCap[i] ? ' glint ' + map.res[i] + '/' + map.resCap[i] : '') + (b ? ' style ' + b.style + ' height ' + b.height : ''));
+      }
+    }
+    parts.push('cache ' + s.canvases + ' rasters ' + (s.pixels / 1e6).toFixed(1) + ' Mpx, bake ' + s.bakeMs.toFixed(0) + ' ms' + (s.pending ? ', ' + s.pending + ' pending' : ''));
+    if (FREEZE !== null) parts.push('frozen at ' + FREEZE + 's');
+    if (missing.length) parts.push('MISSING ' + missing.join(', '));
+    info(parts.join(' · '));
+  }
+
+  // ---- 5. input ---------------------------------------------------------------------------------------------
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    dirty = true;
+  }
+  function world(e) { return [view.x0 + e.clientX / cam.zoom, view.y0 + e.clientY / cam.zoom]; }
+  function zoomAt(f, sx, sy) {
+    const z = NT.clamp(cam.zoom * f, ZMIN, ZMAX), wx = cam.x + (sx - W / 2) / cam.zoom, wy = cam.y + (sy - H / 2) / cam.zoom;
+    cam.x = wx - (sx - W / 2) / z; cam.y = wy - (sy - H / 2) / z; cam.zoom = z; dirty = true;
+  }
+  function fit() { cam.x = map.w * TILE / 2; cam.y = map.h * TILE / 2; cam.zoom = NT.clamp(Math.min(W / (map.w * TILE), (H - 30) / (map.h * TILE)), ZMIN, ZMAX); dirty = true; }
+  let grab = null, linkT = 0;
+  cv.addEventListener('pointerdown', function (e) { grab = [e.clientX, e.clientY, cam.x, cam.y]; cv.setPointerCapture(e.pointerId); cv.className = 'drag'; });
+  cv.addEventListener('pointermove', function (e) {
+    hover = world(e);
+    if (grab) { cam.x = grab[2] - (e.clientX - grab[0]) / cam.zoom; cam.y = grab[3] - (e.clientY - grab[1]) / cam.zoom; }
+    dirty = true;
+  });
+  const release = function () { grab = null; cv.className = ''; };
+  cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
+  cv.addEventListener('wheel', function (e) { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
+  mini.addEventListener('pointerdown', function (e) {
+    const r = mini.getBoundingClientRect();
+    cam.x = (e.clientX - r.left) / r.width * map.w * TILE; cam.y = (e.clientY - r.top) / r.height * map.h * TILE; dirty = true;
+  });
+  const toggle = function (k) { show[k] = !show[k]; buttons(); dirty = true; };
+  const buttons = function () { $('bGrid').className = show.grid ? 'on' : ''; $('bMarks').className = show.marks ? 'on' : ''; $('bLights').className = show.lights ? 'on' : ''; };
+  $('bGrid').onclick = function () { toggle('grid'); }; $('bMarks').onclick = function () { toggle('marks'); }; $('bLights').onclick = function () { toggle('lights'); };
+  window.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    const k = e.key.toLowerCase(), step = 96 / cam.zoom;
+    if (k === 'g') toggle('grid'); else if (k === 'm') toggle('marks'); else if (k === 'l') toggle('lights'); else if (k === '0') fit();
+    else if (k === '+' || k === '=') zoomAt(1.25, W / 2, H / 2); else if (k === '-') zoomAt(0.8, W / 2, H / 2);
+    else if (k === 'arrowleft') cam.x -= step; else if (k === 'arrowright') cam.x += step; else if (k === 'arrowup') cam.y -= step; else if (k === 'arrowdown') cam.y += step;
+    else return;
+    dirty = true;
+  });
+  window.addEventListener('resize', resize);
+  for (const m of [{ id: '', name: { en: '(generated)' } }].concat(NT.MAPS)) {
+    const o = document.createElement('option'); o.value = m.id; o.textContent = m.id ? m.id + ' — ' + m.name.en : m.name.en; $('preset').appendChild(o);
+  }
+  $('preset').onchange = function () { if (this.value) openMap({ map: this.value }); };
+  $('go').onclick = function () { openMap({ seed: +$('seed').value || 1, size: $('size').value }); };
+  $('seed').onkeydown = function (e) { if (e.key === 'Enter') $('go').onclick(); };
+
+  // ---- 6. benchmark: the terrain passes for a full 1600x900 view ----------------------------------------------
+  function bench(frames) {
+    frames = frames || 60;
+    const bw = 1600, bh = 900, bc = document.createElement('canvas'), c = bc.getContext('2d'), keep = Object.assign({}, cam), res = { map: map.name, cells: map.w + 'x' + map.h, view: bw + 'x' + bh, dpr: DPR, zooms: {} };
+    bc.width = bw * DPR; bc.height = bh * DPR;
+    const now = function () { return performance.now(); }, flush = function () { c.getImageData(0, 0, 1, 1); };
+    const one = function (t) { c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#07080c'; c.fillRect(0, 0, bc.width, bc.height); setView(c, bw, bh, t); passes(c, true); flush(); };
+    cam.x = map.w * TILE / 2; cam.y = map.h * TILE / 2;
+    for (const z of [0.5, 1, 2.5]) {
+      cam.zoom = z;
+      const s0 = TR.stats.bakeMs, t0 = now();
+      TR.clear(); one(0);
+      const cold = now() - t0, bake = TR.stats.bakeMs - s0;
+      for (let i = 0; i < 40 && (i < 2 || TR.stats.pending); i++) one(0);
+      const split = { ground: 0, shadows: 0, resources: 0, propsLow: 0, blocks: 0, propsHigh: 0, lights: 0 }, t1 = now();
+      let worst = 0;
+      for (let f = 0; f < frames; f++) {
+        const ta = now(), t = f / 60;
+        c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#07080c'; c.fillRect(0, 0, bc.width, bc.height); setView(c, bw, bh, t);
+        let a = now(), b;
+        TR.drawGround(c, view); b = now(); split.ground += b - a; a = b;
+        TR.shadowsFor(c, view); b = now(); split.shadows += b - a; a = b;
+        TR.drawResources(c, view, map); b = now(); split.resources += b - a; a = b;
+        TR.drawPropsLow(c, view); b = now(); split.propsLow += b - a; a = b;
+        const items = TR.blocks(view).sort(function (p, r) { return p.y - r.y; });
+        for (const it of items) it.draw(c);
+        b = now(); split.blocks += b - a; a = b;
+        TR.drawPropsHigh(c, view); b = now(); split.propsHigh += b - a; a = b;
+        c.globalCompositeOperation = 'lighter'; TR.drawLights(c, view); c.globalCompositeOperation = 'source-over';
+        flush(); b = now(); split.lights += b - a;
+        worst = Math.max(worst, b - ta);
+      }
+      for (const k in split) split[k] = +(split[k] / frames).toFixed(3);
+      res.zooms[z] = { bucket: TR.LADDER[TR.stats.bucket], coldFrameMs: +cold.toFixed(1), coldBakeMs: +bake.toFixed(1), warmMs: +((now() - t1) / frames).toFixed(3), worstMs: +worst.toFixed(2), passes: split,
+        rasters: TR.stats.canvases, megapixels: +(TR.stats.pixels / 1e6).toFixed(2) };
+    }
+    // a cold pan across the whole map and a zoom sweep, as a player would do them: mean / worst frame
+    const sweep = function (n, fn) {
+      let worst = 0, sum = 0;
+      TR.clear(); cam.zoom = 1; cam.x = bw / 2; cam.y = bh / 2; one(0);
+      for (let f = 0; f < n; f++) { fn(f / (n - 1)); const t0 = now(); one(f / 60); const dt = now() - t0; sum += dt; worst = Math.max(worst, dt); }
+      return { frames: n, meanMs: +(sum / n).toFixed(2), worstMs: +worst.toFixed(2) };
+    };
+    res.pan = sweep(300, function (u) { cam.x = NT.lerp(bw / 2, map.w * TILE - bw / 2, u); cam.y = NT.lerp(bh / 2, map.h * TILE - bh / 2, u); });
+    res.zoomSweep = sweep(240, function (u) { cam.x = map.w * TILE / 2; cam.y = map.h * TILE / 2; cam.zoom = 0.5 * Math.pow(5, u < 0.5 ? u * 2 : 2 - u * 2); });
+    res.cache = { rasters: TR.stats.canvases, megapixels: +(TR.stats.pixels / 1e6).toFixed(2), budgetMpx: TR.budget / 1e6, evictions: TR.stats.evictions };
+    Object.assign(cam, keep); dirty = true;
+    return res;
+  }
+
+  // ---- 7. run -------------------------------------------------------------------------------------------------
+  const MV = window.MAPVIEW = { ready: false, bench: bench, cam: cam, view: view, show: show, open: openMap, missing: missing };
+  resize(); buttons();
+  openMap(q.get('map') ? { map: q.get('map') } : q.has('seed') ? { seed: +q.get('seed') || 1, size: q.get('size') || 'medium' } : { map: NT.MAPS[0].id });
+  if (q.has('x')) cam.x = +q.get('x'); if (q.has('y')) cam.y = +q.get('y');
+  if (q.has('zoom')) cam.zoom = NT.clamp(+q.get('zoom') || 1, ZMIN, ZMAX);
+  MV.map = map;
+  const t0 = performance.now();
+  let n = 0;
+  const tick = function (now) {
+    if (FREEZE === null || dirty || TR.stats.pending) {
+      dirty = false;
+      frame(FREEZE === null ? (now - t0) / 1000 : FREEZE);
+      MV.ready = !TR.stats.pending;
+      if (n++ % 20 === 0 || FREEZE !== null) readout();
+      if (!grab && now - linkT > 500) { linkT = now; link(); }
+    }
+    MV.map = map;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  if (q.has('bench')) {
+    await new Promise(function (r) { setTimeout(r, 200); });
+    MV.benchResult = bench(+q.get('frames') || 60);
+    $('out').style.display = 'block'; $('out').textContent = JSON.stringify(MV.benchResult, null, 1);
+  }
+})().catch(function (e) { document.getElementById('info').textContent = 'map viewer failed: ' + e.message; console.error(e); });
+</script>
+</body>
+</html>
