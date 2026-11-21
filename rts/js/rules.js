@@ -29,6 +29,7 @@
 //   start: { buildings: [{ def: 'hq', at: [0, 0] }], units: [{ def: 'grunt', n: 3 }] },   // buildings[0] must be role 'hq'
 //   buildings: { <key>: BUILDING }, units: { <key>: UNIT }, powers: { <key>: POWER },
 //   ai: AI_HINTS,                       // optional: the skirmish AI plays any faction from generic data alone
+//   music: MUSIC_HINTS,                 // optional: the score's gang voice when this gang is the local player
 // });
 //
 // AI_HINTS {  // every field optional; unknown keys are ignored (read by js/ai.js only)
@@ -39,6 +40,11 @@
 //                                 // a fighter. The AI still adapts the weights to the enemy's mix and forces anti-air.
 //   harvesters: n,                // harvesters per drop-off (default 3; the difficulty level caps the total)
 //   attackAt: x,                  // multiplies the level's attack-wave army values (default 1; < 1 = earlier, smaller)
+// }
+//
+// MUSIC_HINTS {  // every field optional and free-form: kept as written, read by js/audio.js only (its header has the
+//                 // vocabulary: tempo, key, scale, chords per bar, instrument names, 16-step drum patterns, bass
+//                 // riffs, the gang's call motif). No hint = the default city voice; bad fields fall back per field.
 // }
 //
 // BUILDING {
@@ -368,6 +374,7 @@ NT.defineFaction = function (spec) {
     defs: [],                         // every unit + building def, declaration order (buildings first)
     start: { buildings: [], units: [] },
     ai: spec.ai || {},
+    music: spec.music || null,
     art: null,                        // attached by NT.defineArt
   };
   for (const q of (spec.queues || [])) {

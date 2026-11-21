@@ -29,6 +29,28 @@ NT.defineFaction({
   start: { buildings: [{ def: 'cage' }], units: [{ def: 'scrapper', n: 4 }] },
   // Skirmish AI hints (shape: rules.js contract header): relative share of army value per unit.
   ai: { army: { scrapper: 1, skewer: 0.8, strongarm: 0.3, canopener: 0.9, thrower: 0.7, champion: 2, alleycat: 0.8, bull: 1, butcherbird: 0.6 } },
+  // The score's gang voice (shape: rules.js contract header; vocabulary: js/audio.js header). A basement prize-fight
+  // that never stops: E dorian, swung, at 126 — stomps in 3+3+2, toms and hand-claps, a bass with its teeth out, and
+  // the crowd itself as the lead: the front row shouts the call (B B D E — | B B D F# —), the back rows roar the answer
+  // back down to the tonic. Call / answer are [step, scale degree, steps] on a two-bar grid of 16ths; riffs are
+  // [step, semitones above the chord root, steps] (so the bass can walk up chromatically).
+  music: {
+    bpm: 126, key: 52, scale: [0, 2, 3, 5, 7, 9, 10], swing: 0.18,
+    chords: { a: [0, 0, 6, 0, 0, 0, 3, 6], b: [3, 3, 0, 0, 3, 3, 6, 6] },
+    voices: { lead: 'chant', call: 'chant', answer: 'mob', bass: 'drive', air: 'crowd' },
+    call: [[0, 4, 2], [3, 4, 2], [6, 6, 2], [10, 7, 5], [16, 4, 2], [19, 4, 2], [22, 6, 2], [26, 8, 5]],
+    answer: [[0, 7, 2], [3, 6, 2], [6, 4, 4], [16, 3, 2], [19, 2, 2], [22, 0, 6]],
+    riff: {
+      tension: [[0, 0, 2], [3, 0, 1], [6, 0, 2], [11, 10, 1], [12, 0, 2]],
+      battle: [[0, 0, 2], [2, 0, 1], [3, 12, 1], [4, 0, 2], [6, 3, 2], [8, 5, 1], [9, 6, 1], [10, 7, 2], [12, 0, 1], [13, 0, 1], [14, 10, 2]],
+    },
+    kit: {
+      tension: { stomp: 'x.....x...x.....', clap: ['............x...', '............x.x.'], tom: ['................', '..........3.4...'] },
+      battle: { stomp: 'X..x..x.X..x..x.', clap: ['....X.......X...', '....X.......X.xx'], tom: ['..2...3...2.3.4.', '1.2...3..3..4.44'], hat: 'o.x.o.x.o.x.o.x.' },
+      fill: { stomp: 'X...x...x...x...', tom: '1.1.2.2.3.3.4444', clap: '........x.x.XXXX' },
+    },
+    stab: ['......X.........', '......X.......x.'],
+  },
 
   buildings: {
     cage: {

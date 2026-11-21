@@ -111,6 +111,12 @@ NT.Game.clampCam = function () {
   c.y = mh + 2 * pad <= 2 * hh - it - ib ? mh / 2 + (ib - it) / 2 : NT.clamp(c.y, hh - pad - it, mh - hh + pad + ib);
 };
 NT.Game.focus = function (wx, wy) { NT.Game.cam.x = wx; NT.Game.cam.y = wy; NT.Game.clampCam(); };
+// Like focus, but centres the point in the part of the playfield the HUD leaves uncovered (sidebar / bottom sheet).
+NT.Game.lookAt = function (wx, wy) {
+  const G = NT.Game, z = G.cam.zoom, ins = NT.UI && NT.UI.insets ? NT.UI.insets() : null;
+  if (!ins) { G.focus(wx, wy); return; }
+  G.focus(wx + (ins.right - ins.left) / 2 / z, wy + (ins.bottom - ins.top) / 2 / z);
+};
 // Zoom keeping the world point under screen (sx, sy) fixed.
 NT.Game.zoomAt = function (sx, sy, factor) {
   const G = NT.Game, before = G.toWorld(sx, sy);
@@ -136,6 +142,8 @@ NT.Game.sees = function (e) {
 NT.Game.cmd = function (cmd) {
   const G = NT.Game;
   if (G.state !== 'playing' || G.me < 0 || !G.world || G.world.over) return false;
+  // paused = frozen: nothing queues up behind the PAUSED sign (the pause menu's surrender is the one exception)
+  if (G.paused && cmd.type !== 'surrender') { NT.emit('ui:error', 'ui.t.paused'); return false; }
   const ok = NT.cmd(G.world, G.me, cmd);
   if (ok) NT.emit('ui:cmd', cmd);
   return ok;
@@ -198,6 +206,7 @@ NT.Game.start = function (opts) {
   G.cam.zoom = 1;
   G.focus((p.startCx + 1.5) * NT.TILE, (p.startCy + 1.5) * NT.TILE);
   NT.emit('game:start', G.world);
+  G.lookAt((p.startCx + 1.5) * NT.TILE, (p.startCy + 3) * NT.TILE);   // HQ + start squad; after game:start: the HUD is laid out only now
   return G.world;
 };
 NT.Game.restart = function () { if (NT.Game.match) NT.Game.start(NT.Game.match); };

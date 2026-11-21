@@ -29,6 +29,28 @@ NT.defineFaction({
   start: { buildings: [{ def: 'command' }], units: [{ def: 'picket', n: 4 }] },
   // Skirmish AI hints (shape: rules.js contract header): relative share of army value per unit.
   ai: { army: { picket: 1, stovepipe: 1, sweeper: 0.5, hydrant: 1, doorman: 1.4, mailman: 0.9, monument: 2 } },
+  // The score's gang voice (shape: rules.js contract header; vocabulary: js/audio.js header). A night-watch on parade:
+  // D minor at a marching 96 — rim clicks on every beat, snare cadences and rolls, low brass, a siren somewhere over
+  // the roofs. One bugle calls from the far end of the street and stops on the fifth, a tritone drop on the way
+  // (A D E — | F E Bb A —); the brass answers three times on the tonic. Call / answer are [step, scale degree, steps]
+  // on a two-bar grid of 16ths (degree 7 = the tonic above); riffs are [step, semitones above the chord root, steps].
+  music: {
+    bpm: 96, key: 50, scale: [0, 2, 3, 5, 7, 8, 10], swing: 0,
+    chords: { a: [0, 4, 5, 4, 0, 4, 3, 4], b: [3, 4, 5, 0, 3, 4, 5, 4] },
+    voices: { lead: 'brass', call: 'bugle', answer: 'brass', bass: 'pulse', air: 'wail' },
+    call: [[0, 4, 3], [3, 7, 1], [4, 8, 8], [16, 9, 2], [18, 8, 2], [20, 5, 4], [24, 4, 8]],
+    answer: [[0, -7, 3], [6, -7, 2], [8, -7, 6], [16, -5, 3], [19, -6, 1], [20, -7, 10]],
+    riff: {
+      tension: [[0, 0, 3], [4, 0, 3], [8, 0, 3], [12, 0, 2], [14, 7, 2]],
+      battle: [[0, 0, 2], [3, 0, 1], [4, 0, 2], [6, 7, 2], [8, 0, 2], [11, 0, 1], [12, 3, 2], [14, 7, 2]],
+    },
+    kit: {
+      tension: { rim: ['x...x...x...x...', 'x...x...x..ox.x.'], snare: ['................', '..............oo'] },
+      battle: { kick: 'X.......x.......', snare: ['X..ox.xoX..ox.xo', 'X..ox.xoX..oxrrr'], tom: ['4...............', '............4...'] },
+      fill: { kick: 'X.......x.......', snare: 'x...rrrrrrrrXXXX', tom: '..............44' },
+    },
+    stab: ['X.......x.......', 'X.....x.x.......'],
+  },
 
   buildings: {
     command: {

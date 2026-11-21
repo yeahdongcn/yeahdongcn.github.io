@@ -170,8 +170,8 @@
       'ui.t.ready': '{name} ready — place it', 'ui.t.unit': '{name} ready', 'ui.t.units': '{name} ×{n} ready', 'ui.t.nofunds': 'Not enough Glint',
       'ui.t.lowpower': 'Low {power}: production slowed', 'ui.t.powerok': '{power} restored', 'ui.t.base': 'Base under attack',
       'ui.t.harv': 'Harvester under attack', 'ui.t.army': 'Units under attack', 'ui.t.captured': 'Turf claimed: {name}', 'ui.t.lost': 'Turf lost: {name}',
-      'ui.t.blost': '{name} destroyed', 'ui.t.pready': '{name} ready', 'ui.t.strike': 'Incoming: {name}!', 'ui.t.elim': '{name} eliminated',
-      'ui.t.rank': 'A unit was promoted', 'ui.t.sold': 'Sold: +{n}',
+      'ui.t.blost': '{name} destroyed', 'ui.t.pready': '{name} ready', 'ui.t.strike': 'Incoming: {name}!', 'ui.t.super': 'Enemy {name} detected', 'ui.t.elim': '{name} eliminated',
+      'ui.t.rank': 'A unit was promoted', 'ui.t.sold': 'Sold: +{n}', 'ui.t.paused': 'Paused — press P to resume',
       'ui.deny.place': 'Cannot build there', 'ui.deny.prereq': 'Requirements not met', 'ui.deny.limit': 'Limit reached', 'ui.deny.queue': 'Queue full',
       'ui.deny.producer': 'Nothing can build that yet', 'ui.deny.charge': 'Not charged yet', 'ui.deny.target': 'Invalid target', 'ui.deny.def': 'Not available',
       'ui.deny.funds': 'Not enough Glint',
@@ -218,7 +218,7 @@
       'ui.tb.crusher': '碾压', 'ui.tb.explodeOnDeath': '易爆', 'ui.tb.spawnOnDeath': '遗留', 'ui.tb.bounty': '赏金', 'ui.tb.lifesteal': '吸血',
       'ui.sel.n': '已选 {n}', 'ui.rank1': '老兵', 'ui.rank2': '精英', 'ui.owner.neutral': '中立', 'ui.owner.enemy': '敌方 · {name}',
       'ui.owner.ally': '友方 · {name}',
-      'ui.st.braced': '站稳', 'ui.st.surge': '爆发中', 'ui.st.crash': '虚脱', 'ui.st.slow': '减速', 'ui.st.buff': '增益',
+      'ui.st.braced': '已站稳', 'ui.st.surge': '爆发中', 'ui.st.crash': '虚脱', 'ui.st.slow': '减速', 'ui.st.buff': '增益',
       'ui.st.unpowered': '断电', 'ui.st.repairing': '维修中', 'ui.st.captured': '正被占领', 'ui.st.deployed': '已展开',
       'ui.st.primary': '主建筑', 'ui.st.hold': '坚守', 'ui.st.passive': '消极', 'ui.st.cargo': '载货 {n}/{m}', 'ui.st.idle': '空闲',
       'ui.act.stop': '停止', 'ui.act.amove': '攻击移动', 'ui.act.hold': '坚守', 'ui.act.deploy': '展开', 'ui.act.surge': '爆发',
@@ -232,8 +232,8 @@
       'ui.t.ready': '{name}已就绪，请放置', 'ui.t.unit': '{name}就绪', 'ui.t.units': '{name} ×{n} 就绪', 'ui.t.nofunds': '碎金不足',
       'ui.t.lowpower': '{power}不足：生产减速', 'ui.t.powerok': '{power}已恢复', 'ui.t.base': '基地遭到攻击',
       'ui.t.harv': '采集车遭到攻击', 'ui.t.army': '部队遭到攻击', 'ui.t.captured': '占领地盘：{name}', 'ui.t.lost': '失去地盘：{name}',
-      'ui.t.blost': '{name}被摧毁', 'ui.t.pready': '{name}已就绪', 'ui.t.strike': '敌方{name}来袭！', 'ui.t.elim': '{name}已被淘汰',
-      'ui.t.rank': '有部队晋升了', 'ui.t.sold': '出售：+{n}',
+      'ui.t.blost': '{name}被摧毁', 'ui.t.pready': '{name}已就绪', 'ui.t.strike': '敌方{name}来袭！', 'ui.t.super': '发现敌方{name}', 'ui.t.elim': '{name}已被淘汰',
+      'ui.t.rank': '有部队晋升了', 'ui.t.sold': '出售：+{n}', 'ui.t.paused': '已暂停：按 P 继续',
       'ui.deny.place': '无法在此建造', 'ui.deny.prereq': '前置条件不足', 'ui.deny.limit': '已达上限', 'ui.deny.queue': '队列已满',
       'ui.deny.producer': '还没有能生产它的建筑', 'ui.deny.charge': '尚未充能', 'ui.deny.target': '目标无效', 'ui.deny.def': '不可用',
       'ui.deny.funds': '碎金不足',
@@ -256,7 +256,8 @@
       if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA' && !(t.closest && t.closest('a'))) e.preventDefault();
     });
     root.addEventListener('contextmenu', function (e) { if (e.target !== root) e.preventDefault(); });
-    window.addEventListener('pointerdown', function (e) { if (e.pointerType !== 'mouse' && tipRec && !(e.target.closest && e.target.closest('.nt-b'))) hideTip(); }, true);
+    // touch tips stay up after the finger lifts (a touch release fires pointerleave): the next tap elsewhere hides them
+    window.addEventListener('pointerdown', function (e) { if (e.pointerType !== 'mouse' && H.tip._c_on && !(tipRec && e.target.closest && e.target.closest('.nt-b') === tipRec.btn)) hideTip(); }, true);
     buildTop(); buildSide(); buildSel(); buildMisc();
     if (UI._buildOverlay) UI._buildOverlay();
     NT.on('game:start', onStart);
@@ -474,13 +475,13 @@
     const end = function () { clearTimeout(rec.lpT); };
     b.addEventListener('pointerup', end); b.addEventListener('pointercancel', end); b.addEventListener('pointerleave', end);
     b.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') showTip(rec); });
-    b.addEventListener('pointerleave', hideTip);
+    b.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') hideTip(); });
   }
 
   function clickBuild(rec, n) {
     const g = G(), p = g.player(), r = rec.row;
     if (!p || !r) return;
-    if (r.ready) {
+    if (r.ready || p.queues[rec.def.queue].ready === rec.def) {          // rec.row may be up to 100 ms stale
       if (g.mode.type === 'place' && g.mode.def === rec.def) cancelMode();
       else g.setMode({ type: 'place', def: rec.def });
       return;
@@ -1002,7 +1003,7 @@
       if (t.at || t.onClick) { t.el.classList.add('click'); t.icon = el('span', 'nt-tjump', t.el); t.icon.innerHTML = ICON.jump; }
       t.txt = el('span', 'nt-ttxt', t.el); t.cnt = el('span', 'nt-tcnt', t.el);
       t.el.addEventListener('click', function () {
-        if (t.at) { G().focus(t.at[0], t.at[1]); if (NT.Render && NT.Render.ping) NT.Render.ping(t.at[0], t.at[1], '#ff4d5e'); }
+        if (t.at) { G().lookAt(t.at[0], t.at[1]); if (NT.Render && NT.Render.ping) NT.Render.ping(t.at[0], t.at[1], '#ff4d5e'); }
         if (t.onClick) t.onClick();
         t.ttl = Math.min(t.ttl, 0.3);
       });
@@ -1051,7 +1052,11 @@
         a.n++; a.t = now;
         UI.toast(a.n > 1 ? 'ui.t.units' : 'ui.t.unit', { name: d.name, n: a.n }, { kind: 'good', group: 'prod:' + k, ttl: 3.5 });
       } break;
-      case 'placed': case 'cancelled': if (ev.owner === me) { const t = toasts.find(function (x) { return x.group === 'ready:' + ev.def; }); if (t) dropToast(t); } break;
+      case 'placed': case 'cancelled': if (ev.owner === me) { const t = toasts.find(function (x) { return x.group === 'ready:' + ev.def; }); if (t) dropToast(t); }
+        else if (ev.t === 'placed' && NT.isEnemy(w, me, ev.owner)) {             // fog never hides a superweapon (fog.js): say so
+          const d = NT.DEFS[ev.def];
+          if (d && d.role === 'super') alertAt('ui.t.super', { name: d.name }, ev.x, ev.y, 'super:' + ev.id, 0);
+        } break;
       case 'nofunds': if (ev.owner === me) UI.toast('ui.t.nofunds', null, { kind: 'warn', group: 'nofunds', every: 9000 }); break;
       case 'lowpower': if (ev.owner === me) { const o = toasts.find(function (x) { return x.group === (ev.on ? 'power:ok' : 'power:low'); }); if (o) dropToast(o); }
         if (ev.owner === me) UI.toast(ev.on ? 'ui.t.lowpower' : 'ui.t.powerok', { power: p.faction.powerName }, { kind: ev.on ? 'bad' : 'good', group: ev.on ? 'power:low' : 'power:ok' }); break;
@@ -1531,7 +1536,11 @@
       el('h4', 'nt-hk', right, T('ui.how.' + o));
       if (o === 'mouse') {
         const tb = el('div', 'nt-keys', right);
-        for (const kk of KEYS) { el('kbd', '', tb, kk[0].indexOf('ui.') === 0 ? T(kk[0]) : kk[0]); el('span', '', tb, T(kk[1])); }
+        const canDeploy = NT.FACTION_LIST.some(function (f) { return f.defs.some(function (d) { return d.traits.deploy; }); });
+        for (const kk of KEYS) {
+          if (kk[1] === 'ui.k.deploy' && !canDeploy) continue;        // no unit deploys yet: don't advertise a dead key
+          el('kbd', '', tb, kk[0].indexOf('ui.') === 0 ? T(kk[0]) : kk[0]); el('span', '', tb, T(kk[1]));
+        }
       } else {
         const ul = el('ul', 'nt-tlist', right);
         for (const t of TOUCH) el('li', '', ul, T(t));

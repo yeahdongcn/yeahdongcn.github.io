@@ -238,9 +238,12 @@ body { position: fixed; inset: 0; color: #e8ecf5; -webkit-user-select: none; use
 .nt-tjump .nt-ico { width: 14px; height: 14px; }
 .nt-toast.bad .nt-tjump { color: var(--bad); }
 
-.nt-hint, .nt-banner { position: absolute; top: calc(var(--gap) * 2 + var(--topH)); left: calc((100% - var(--side) - var(--gap)) / 2); transform: translateX(-50%); z-index: 15; }
-.nt-hint { display: none; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 9px 10px 9px 14px; max-width: min(560px, 46vw); box-sizing: border-box; }
+/* centred in the strip between the toast column (330 px) and the sidebar, so neither covers the other */
+.nt-hint, .nt-banner { position: absolute; top: calc(var(--gap) * 2 + var(--topH)); left: calc((100% - var(--side) + 330px + var(--gap)) / 2); transform: translateX(-50%); z-index: 15; }
+.nt-hint { display: none; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 9px 10px 9px 14px; max-width: min(560px, calc(100% - var(--side) - 330px - var(--gap) * 4)); box-sizing: border-box; }
 .nt-hint.on { display: flex; }
+.nt-hud .nt-hint { pointer-events: none; }               /* the coach line must not swallow taps on the units under it */
+.nt-hud .nt-hint .nt-hbtn { pointer-events: auto; }
 .nt-moding .nt-hint { display: none; }
 .nt-banner { display: none; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 .nt-banner.on { display: flex; }
@@ -382,14 +385,14 @@ body { position: fixed; inset: 0; color: #e8ecf5; -webkit-user-select: none; use
 /* ==========================================================================
    COMPACT — touch / small screens (ui.js sets .nt-compact)
    ========================================================================== */
-.nt-compact { --topH: 34px; --gap: 5px; font-size: 12px; }
+.nt-compact { --topH: 40px; --gap: 5px; font-size: 12px; }   /* 40: the top-bar buttons' hit areas fill the bar */
 .nt-compact .nt-res { gap: 12px; padding: 0 10px; }
 .nt-compact .nt-val { font-size: 14.5px; }
 .nt-compact .nt-glint .nt-lbl, .nt-compact .nt-pow .nt-lbl { display: none; }
 .nt-compact .nt-glint .nt-val { min-width: 52px; }
 .nt-compact .nt-pbar { width: 46px; }
 .nt-compact .nt-sys { width: auto; padding: 0 3px; }
-.nt-compact .nt-sb { height: 30px; min-width: 36px; }
+.nt-compact .nt-sb { height: 30px; min-width: 40px; }
 /* minimap: corner, tap to enlarge */
 .nt-compact > .nt-mm { position: absolute; right: var(--gap); top: calc(var(--gap) * 2 + var(--topH)); width: 92px; height: 92px; aspect-ratio: auto; z-index: 12; box-shadow: 0 0 0 1px var(--acc-a); }
 .nt-compact > .nt-mm.big { width: min(78vh, 60vw); height: min(78vh, 60vw); z-index: 45; }
@@ -397,7 +400,7 @@ body { position: fixed; inset: 0; color: #e8ecf5; -webkit-user-select: none; use
 .nt-compact > .nt-mm .nt-nosig span { display: none; }
 .nt-compact > .nt-mm.big .nt-nosig span { display: block; }
 .nt-compact > .nt-powers { position: absolute; right: var(--gap); top: calc(var(--gap) * 3 + var(--topH) + 92px); flex-direction: column; gap: 5px; z-index: 11; }
-.nt-compact > .nt-powers .nt-pw { flex: none; padding: 3px !important; background: var(--glass) !important; }
+.nt-compact > .nt-powers .nt-pw { pointer-events: auto; flex: none; padding: 3px !important; background: var(--glass) !important; }
 .nt-compact > .nt-powers .nt-pwc { display: none; }
 /* bottom sheet */
 .nt-compact .nt-side { left: var(--gap); right: var(--gap); top: auto; bottom: var(--gap); width: auto; height: 122px; padding: 5px 6px 6px; gap: 5px; --cut: 7px; }
@@ -408,6 +411,10 @@ body { position: fixed; inset: 0; color: #e8ecf5; -webkit-user-select: none; use
 .nt-compact .nt-seltab.vis { display: block; flex: 0 0 auto; color: var(--acc) !important; }
 .nt-compact .nt-collapse { display: grid; place-items: center; position: absolute; right: 6px; top: 5px; width: 34px; height: 30px; border: 1px solid var(--line) !important; color: var(--dim) !important; font-size: 14px !important; }
 .nt-compact .nt-side.folded .nt-collapse { transform: rotate(180deg); }
+/* touch: invisible hit-area extensions so the 30 px-tall controls answer a ~40 px fingertip without taking more room */
+.nt-compact .nt-sb, .nt-compact .nt-hbtn { position: relative; }
+.nt-compact .nt-tab { overflow: visible; }
+.nt-compact .nt-sb::after, .nt-compact .nt-tab::after, .nt-compact .nt-collapse::after, .nt-compact .nt-hbtn::after { content: ''; position: absolute; left: 0; right: 0; top: -5px; bottom: -5px; }
 .nt-compact .nt-grid { overflow-x: auto; overflow-y: hidden; margin: 0; padding: 0 0 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .nt-compact .nt-qgrid.on { display: flex; gap: 5px; }
 .nt-compact .nt-b { flex: none; width: 72px; height: 76px; padding: 4px 1px 3px !important; }
@@ -480,3 +487,4 @@ body { position: fixed; inset: 0; color: #e8ecf5; -webkit-user-select: none; use
 .nt-portrait .nt-clock, .nt-portrait .nt-speed { display: none !important; }
 .nt-portrait .nt-res { gap: 10px; }
 .nt-portrait .nt-hint { max-width: 92vw; width: 92vw; }
+.nt-portrait .nt-toasts { top: calc(var(--gap) * 3 + var(--topH) + 34px); }   /* below the rotate note, not under it */

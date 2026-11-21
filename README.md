@@ -40,8 +40,9 @@ or 中文, with mouse and keyboard or touch.
 - 41 buildings and units, 4 support powers, veterancy, fog of war, power management, capturable turf
 - 4 named maps plus a seeded city generator; a skirmish AI that plays through the same
   commands the player has
-- every sprite drawn in code, every sound and the adaptive soundtrack synthesized: still zero
-  dependencies, zero asset files
+- every sprite drawn in code, every sound synthesized, and an adaptive score with one theme
+  and a different voice for each gang (a march and a lone bugle; stomps, claps and a chanting
+  crowd): still zero dependencies, zero asset files
 - **built to grow:** a gang is one data file (plus an optional art file) — the engine, HUD, AI
   and tests pick it up without a line of engine code. See [AGENTS.md](AGENTS.md#adding-a-gang).
 

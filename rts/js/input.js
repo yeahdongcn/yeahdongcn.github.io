@@ -169,7 +169,7 @@
     if (!list.length) return;
     let x = 0, y = 0;
     for (let i = 0; i < list.length; i++) { x += list[i].x; y += list[i].y; }
-    NT.Game.focus(x / list.length, y / list.length);
+    NT.Game.lookAt(x / list.length, y / list.length);
   }
 
   function groupKey(code, ctrl, shift) {
@@ -217,6 +217,7 @@
     opts = opts || {};
     const g = NT.Game, w = world();
     if (!w || g.me < 0 || blocked()) return false;
+    if (g.paused) { NT.emit('ui:error', 'ui.t.paused'); return false; }
     const units = ownUnits(), q = !!(opts.queue || opts.shift);
     if (!units.length) return rallyOrder(wx, wy);
     let t = opts.target || null;
@@ -352,6 +353,7 @@
   function modeClick(sx, sy, shift) {
     const g = NT.Game, m = g.mode;
     if (!m || m.type === 'normal') return false;
+    if (g.paused) { NT.emit('ui:error', 'ui.t.paused'); return true; }     // the mode stays armed for after the pause
     const p = g.toWorld(sx, sy), wx = p[0], wy = p[1];
     if (m.type === 'place') {
       const def = placeDef();
@@ -362,7 +364,17 @@
       const t = NT.Render && NT.Render.pick ? NT.Render.pick(sx, sy) : null;
       if (m.what === 'amove') amoveAt(wx, wy, shift, t);
       else if (m.what === 'attack') { if (t && enemy(t)) amoveAt(wx, wy, shift, t); else amoveAt(wx, wy, shift, null); }
-      else if (m.what === 'power') { cmd({ type: 'power', power: powerId(m.power), x: wx, y: wy }); marker(wx, wy, 'attack'); }
+      else if (m.what === 'power') {
+        // pre-check (the sim's verdict only arrives next tick): a bad target keeps the power armed for another try
+        const chk = NT.Powers && NT.Powers.canFire && g.player() ? NT.Powers.canFire(g.world, g.player(), m.power, wx, wy) : null;
+        if (chk && !chk.ok) {
+          NT.emit('ui:error', 'ui.deny.' + chk.reason);
+          marker(wx, wy, 'deny');
+          if (chk.reason !== 'target') I.cancelMode();
+          return true;
+        }
+        cmd({ type: 'power', power: powerId(m.power), x: wx, y: wy }); marker(wx, wy, 'attack');
+      }
       else if (m.what === 'rally') rallyOrder(wx, wy);
       if (!shift || m.what === 'power') I.cancelMode();
       return true;
@@ -393,7 +405,7 @@
     let a = lastAlert, u = NT.UI && NT.UI.lastAlert;
     if (typeof u === 'function') u = u();
     if (u && (!a || (u.t || 0) >= a.t)) a = u;      // the newer of the HUD's located alerts and ours
-    if (a) NT.Game.focus(a.x, a.y);
+    if (a) NT.Game.lookAt(a.x, a.y);
   }
   function jumpBase() {
     const w = world(), g = NT.Game;
@@ -405,8 +417,8 @@
       if (e.def.role === 'hq') { best = e; break; }
       if (!best || (e.def.countsForDefeat && !best.def.countsForDefeat)) best = e;
     }
-    if (best) g.focus(best.x, best.y);
-    else { const p = g.player(); g.focus((p.startCx + 1.5) * NT.TILE, (p.startCy + 1.5) * NT.TILE); }
+    if (best) g.lookAt(best.x, best.y);
+    else { const p = g.player(); g.lookAt((p.startCx + 1.5) * NT.TILE, (p.startCy + 1.5) * NT.TILE); }
   }
 
   // ---------------------------------------------------------------------------
@@ -732,5 +744,6 @@
     });
     NT.on('game:start', function () { ptrs.clear(); pinch = null; touchLock = false; lastAlert = null; endBox(); keys.clear(); });
     NT.on('game:stop', function () { ptrs.clear(); pinch = null; touchLock = false; endBox(); keys.clear(); });
+    NT.on('game:over', function () { I.cancelMode(); mouseBox = null; endBox(); });   // no armed crosshair behind the result screen
   };
 })();

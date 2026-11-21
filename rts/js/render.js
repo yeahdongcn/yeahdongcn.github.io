@@ -620,7 +620,14 @@
   };
   const ghostSt = { team: NEUTRAL, facing: Math.PI / 2, aim: Math.PI / 2, t: 0, hp: 1, powered: true, ghost: 0.6, seed: 0, zoom: 1 };
   function placementCells(world, p, def, cx, cy) {
-    if (NT.Prod && NT.Prod.canPlace) { const res = NT.Prod.canPlace(world, p, def, cx, cy); if (res && res.cells) return res.cells; }
+    if (NT.Prod && NT.Prod.canPlace) {
+      const res = NT.Prod.canPlace(world, p, def, cx, cy);
+      if (res && res.cells) {
+        // every cell is fine but the spot is not (too far from the base): show the whole footprint as refused
+        if (!res.ok && res.cells.every(function (q) { return q.ok; })) return res.cells.map(function (q) { return { cx: q.cx, cy: q.cy, ok: false }; });
+        return res.cells;
+      }
+    }
     const out = [];
     for (let y = cy; y < cy + def.size[1]; y++) for (let x = cx; x < cx + def.size[0]; x++) {
       const i = y * world.w + x;
@@ -658,6 +665,25 @@
     ctx.setTransform(S, 0, 0, S, Math.round(OX + wx * S), Math.round(OY + wy * S));
     NT.Art.drawEntity(ctx, def, ghostSt);
     worldT();
+  }
+
+  // support-power targeting: the area it will cover, red where the sim would refuse the target
+  function drawPowerAim(world, uk) {
+    const G = NT.Game, m = G.mode, p = G.player();
+    if (!m || m.type !== 'target' || m.what !== 'power' || !p || !G.pointer.inside || !NT.Powers) return;
+    const d = typeof m.power === 'string' ? NT.POWERS[m.power] : m.power, a = d && d[d.kind];
+    if (!d) return;
+    const r = (a && a.radiusPx) || (NT.Powers.SPAWN_WARN || 1.5) * TILE, x = G.pointer.wx, y = G.pointer.wy;
+    const ok = !NT.Powers.canFire || NT.Powers.canFire(world, p, d, x, y).ok, col = ok ? '#eef3ff' : '#ff4d5e';   // not the team colour: some teams are red
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
+    ctx.globalAlpha = 0.12; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.setLineDash([8 * uk, 6 * uk]); ctx.lineDashOffset = -G.now * 16;
+    ctx.lineWidth = 3 * uk; ctx.strokeStyle = 'rgba(4,5,10,0.55)'; ctx.stroke();
+    ctx.lineWidth = 1.6 * uk; ctx.strokeStyle = col; ctx.stroke();
+    ctx.setLineDash([]);
+    const k = 7 * uk;
+    ctx.beginPath(); ctx.moveTo(x - k, y); ctx.lineTo(x + k, y); ctx.moveTo(x, y - k); ctx.lineTo(x, y + k);
+    ctx.lineWidth = 1.4 * uk; ctx.strokeStyle = col; ctx.stroke();
   }
 
   R.ping = function (wx, wy, color) {
@@ -825,6 +851,7 @@
     if (FX && FX.drawOverlay) { FX.drawOverlay(ctx, view, uk); worldT(); }
     drawPings(uk);
     drawPlacement(world, uk);
+    drawPowerAim(world, uk);
 
     // 9 — screen space
     drawBox();

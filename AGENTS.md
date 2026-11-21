@@ -88,7 +88,9 @@ loads exactly those tags in Node.
 
 1. Write `rts/js/factions/<id>.js` — one `NT.defineFaction({...})` call following the contract
    at the top of `js/rules.js` (queues, buildings, units, weapons, traits, support powers,
-   optional `ai` hints). Copy the shape of `curfew.js` or `pitfang.js`.
+   optional `ai` hints for the skirmish AI, optional `music` hints that give the gang its own
+   voice in the score — vocabulary at the top of `js/audio.js`). Copy the shape of `curfew.js`
+   or `pitfang.js`.
 2. Optionally write `rts/js/factions/<id>.art.js` — one `NT.Art.define('<id>', {...})`; the kit
    and the art contract are documented at the top of `js/art.js`, and `gallery.html` shows the
    result. Without it the gang plays with generic fallback art.
@@ -106,7 +108,9 @@ through commands and plays AI matches with every faction) and `node rts/test/bal
   `?demo` (AI vs AI, spectate), `&t=<seconds>` fast-forward, `&speed=`, `&nofog`, `&paused`,
   `&cam=x,y,zoom`, `&lang=en|zh`, `&mute`, `&brawl=<n>` (instant mirror battle).
 - New mechanics get assertions in `rts/test/smoke.js`; new numbers get a `balance.js` run.
-- Sound has only been checked by instruments (levels, voice counts), so listen before you trust it.
+- The score and every sound were composed and checked by instruments and spectrograms only
+  (levels, onsets, pitch, band energy) — nobody has listened. Trust your ears over the numbers.
+- Commands are refused while the game is paused (`NT.Game.cmd`), except surrender.
 
 ---
 
