@@ -469,7 +469,7 @@
     else ringPath(r, r.rr + (isSel ? 0 : 1.5));
   }
   function chevronRing(r, rad, t) {                       // braced: a ring of outward chevrons
-    const n = 8, rot = t * 0.25;
+    const n = r.e.def.body === 'small' ? 4 : 6, rot = t * 0.25 + (n === 4 ? TAU / 8 : 0);
     for (let i = 0; i < n; i++) {
       const a = rot + i / n * TAU, c = Math.cos(a), s = Math.sin(a), px = -s, py = c;
       ctx.moveTo(r.rx + c * rad + px * 2.6, r.ry + s * rad + py * 2.6);
@@ -514,11 +514,12 @@
         if (e.captureT > 0) captureRing(world, r);
       }
     }
-    if (braced) {
-      ctx.beginPath();
-      for (let i = 0; i < ground.length; i++) { const r = ground[i]; if (r.e.braced) chevronRing(r, r.rr + 2, t); }
+    if (braced) {                                         // dug in: chevrons in the owner's colour (white would read as a selection)
       ctx.lineJoin = 'round';
-      strokeHalo('#f1f4fb', 1.1);
+      for (let i = 0; i < ground.length; i++) {
+        const r = ground[i]; if (!r.e.braced) continue;
+        ctx.beginPath(); chevronRing(r, r.rr + 2, 0); strokeHalo(r.st.team, 1.3);
+      }
     }
   }
   function captureRing(world, r) {

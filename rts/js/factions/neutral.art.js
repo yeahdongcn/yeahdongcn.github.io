@@ -5,7 +5,7 @@
 // grey while nobody holds the block. Fixed hues stay thin and sit between the player colours.
 (function () {
   const A = NT.Art, P = A.P, PI = Math.PI;
-  const WARM = '#ffe2b0', PAPER = '#ff8a4c', MINT = '#3df0a8', VOLT = '#8fb8ff', ICE = '#d9f4ff', CREAM = '#e9e2cf';
+  const WARM = '#ffe2b0', PAPER = '#ff8a4c', MINT = '#3df0a8', ICE = '#d9f4ff', CREAM = '#e9e2cf';
 
   function slab(g, x, y, w, h, col) { g.rect(x, y, w, h, col || '#1b202a', { lit: 0, bevel: -0.5, r: 1.5, ol: 'rgba(0,0,0,0.5)', lw: 0.5 }); }
   function band(g, s, x, y, w, d) { g.rect(x, y, w, d, s.team, { lit: 0.12, bevel: 0.5, lw: 0.5, r: 0.5 }); }
@@ -14,16 +14,6 @@
     return P.poly([cx - t, cy - r, cx + t, cy - r, cx + t, cy - t, cx + r, cy - t, cx + r, cy + t, cx + t, cy + t,
       cx + t, cy + r, cx - t, cy + r, cx - t, cy + t, cx - r, cy + t, cx - r, cy - t, cx - t, cy - t]);
   }
-  function sparks(g, x, y, t, col) {
-    const k = Math.floor(t * 14), on = A.hash01(k, 3) > 0.45;
-    if (!on) return;
-    for (let i = 0; i < 4; i++) {
-      const a = A.hash01(k, i) * PI * 2, d = 1.5 + A.hash01(k, i + 9) * 4;
-      g.line(x, y, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.7, col, 0.6);
-    }
-    g.puff(x, y, 3.2, '#ffffff', 0.9);
-  }
-
   NT.Art.define('neutral', {
     // ---- Noodle Bar: low kitchen, long awning over a counter with stools, steaming stock pot on the roof
     noodlebar: {
@@ -146,45 +136,6 @@
       },
     },
 
-    // ---- Substation: an open fenced yard — two finned transformers, a pylon, a control hut, arcs
-    substation: {
-      height: 32,
-      base: function (g, s) {
-        const W = s.W, H = s.H;
-        slab(g, 3, 5, W - 6, H - 8, '#2b313c');
-        g.hazard(4.5, H - 7.5, W - 9, 2.4, { step: 2.6 });
-        g.fence([4, 7, W - 4, 7], { h: 6 });
-        const hut = g.box(7, 11, 18, 13, 9, { roof: '#474e5c', wall: '#39404e', lip: 1.4 });
-        band(g, s, hut.x + 2.4, hut.y + 2.4, hut.w - 4.8, 4);
-        g.door(hut.wall.x + 6, hut.wall.y + 2, 6, 7, { lit: VOLT });
-        g.mast(W - 9, 15, 26, { w: 1.6, bars: 3, barW: 10, tip: '#ff5a36' });
-        for (let k = 0; k < 2; k++) {
-          const tx = k ? 35 : 9, ty = k ? 33 : 33, tf = g.box(tx, ty, 20, 14, 9, { roof: '#5f6878', wall: '#3d4452' });
-          g.vent(tf.wall.x + 1.5, tf.wall.y + 1.6, tf.wall.w - 3, tf.wall.h - 3.2, { v: true, step: 1.7 });
-          g.rect(tf.x + 1.6, tf.y + 1.6, tf.w - 3.2, tf.d - 3.2, s.team, { r: 1, lit: 0.14, lw: 0.5 });
-          g.at(9, function () { for (let i = 0; i < 3; i++) g.cyl(tx + 5 + i * 5, ty + 4, 1.6, 5, '#c9b8a0', { top: '#e6dccb', wall: '#8a7c68' }); });
-        }
-        g.at(15, function () { g.pipe([12, 37, W - 9, 37, W - 9, 15], 1.1, '#aab4c6'); });
-        g.poly([W - 15, H - 12, W - 10.5, H - 20, W - 6, H - 12], '#ffc91f', { r: 0.6, lit: 0.1, lw: 0.6 });
-        if (g.vis()) g.stroke(A.glyphPath('bolt', W - 12.6, H - 18, 4.2, 5.4), '#15171c', 0.8);
-        g.fence([4, 7, 4, H - 6, W - 4, H - 6, W - 4, 7], { h: 6 });
-        g.banner(27, H - 12.5, 6, 6.5, s.team, { tail: 1.4 });
-        g.led(hut.wall.x + 3, hut.wall.y + 3, VOLT, 0.7);
-      },
-      anim: function (g, s) {
-        const k = Math.floor(s.t * 9 + s.seed), on = A.hash01(k, 7) > 0.72, tx = A.hash01(k, 2) > 0.5 ? 35 : 9;
-        if (!on) return;
-        const pts = [tx + 5, 25];
-        for (let i = 1; i <= 4; i++) pts.push(tx + 5 + i * 2.5, 25 + (A.hash01(k, i + 20) - 0.5) * 3.4);
-        g.lines(pts, '#eaf2ff', 0.7);
-      },
-      lights: function (g, s) {
-        const k = Math.floor(s.t * 9 + s.seed), on = A.hash01(k, 7) > 0.72, tx = A.hash01(k, 2) > 0.5 ? 35 : 9;
-        for (let i = 0; i < 2; i++) g.puff((i ? 35 : 9) + 10, 24, 9, VOLT, 0.1 + 0.05 * Math.sin(s.t * 3 + i * 2));
-        if (on) g.puff(tx + 10, 25, 9, VOLT, 0.7);
-      },
-    },
-
     // ---- Back-Alley Clinic: the only pale roof on the street, a lit mint cross on a white pad
     clinic: {
       height: 32,
@@ -211,44 +162,6 @@
         const k = 0.16 + 0.1 * Math.sin(s.t * 1.7 + s.seed) + (Math.sin(s.t * 23 + s.seed) > 0.96 ? -0.14 : 0);
         g.puff(s.W / 2, 13, 17, MINT, Math.max(0, k));
       },
-    },
-
-    // ---- Chop Garage: tin shed with two bays, a car in the owner's paint up on the yard lift, tyres, sparks
-    chopgarage: {
-      height: 30,
-      base: function (g, s) {
-        const W = s.W, H = s.H, h = 12, rise = 5, yT = 9 - h, yR = 9 + 18 - h - rise, yE = 9 + 36 - h;
-        slab(g, 2, 6, W - 4, H - 8, '#1d222c');
-        if (g.vis()) { g.puff(76, 50, 9, '#07080b', 0.5); g.puff(22, 56, 7, '#07080b', 0.4); }
-        g.gable(4, 9, 58, 36, h, rise, { roof: '#59626f', wall: '#3e4553', ribs: 4 });
-        for (const X of [10, 46]) { g.rect(X, yT + 0.9, 8, yR - yT - 0.9, A.shade(s.team, 0.1), A.FLAT); g.rect(X, yR, 8, yE - yR - 0.9, A.shade(s.team, -0.16), A.FLAT); }
-        g.door(8, yE + 2, 21, h - 2, { lit: WARM, shut: 0.12 });
-        g.door(37, yE + 2, 21, h - 2, { lit: WARM, shut: 0.78, slats: '#6a7382' });
-        g.hazard(31, yE + 1.5, 4, h - 1.5, { step: 2 });
-        g.at(h + rise, function () {
-          const b = g.billboard(19, 27, 26, 9, { lift: 1 });
-          g.glyph('wrench', b.x + 2.2, b.y + 1.3, 6, 6.4, '#ffd9a0', { w: 1 });
-          g.glyph('gear', b.x + 10, b.y + 1.3, 6.4, 6.4, '#ffd9a0', { w: 0.8 });
-          g.scribble(b.x + 18, b.y + 2.6, b.w - 20, 4, WARM, { seed: 31, lw: 0.9, rows: 2 });
-          trim(g, s, b);
-        });
-        const lx = 79, ly = 27;
-        g.rect(lx - 9, ly - 15, 18, 30, '#272c36', { lit: 0, bevel: -0.6, r: 1 });
-        g.hazard(lx - 9, ly + 13, 18, 2, { step: 2 });
-        for (const q of [[-8, -12], [8, -12]]) g.mast(lx + q[0], ly + q[1], 10, { w: 1.7, col: '#9aa3b5' });
-        g.at(6, function () {
-          g.rect(lx - 7, ly - 13, 3, 26, '#59616f', { lit: 0.1, lw: 0.4 }); g.rect(lx + 4, ly - 13, 3, 26, '#59616f', { lit: 0.1, lw: 0.4 });
-          g.at(1.5, function () { g.car(lx, ly, 27, 13.5, s.team, { rot: -PI / 2, stripe: s.teamInk }); });
-        });
-        for (const q of [[-8, 12], [8, 12]]) g.mast(lx + q[0], ly + q[1], 10, { w: 1.7, col: '#9aa3b5' });
-        g.tyre(68, 53, 3.4); g.tyre(74, 55.5, 3.4); g.at(2.5, function () { g.tyre(71, 53.6, 3.4); });
-        g.drum(88, 54, 3, '#3f6f8f', 5); g.drum(84, 57.5, 2.8, '#8a4b2a', 5);
-        g.crate(40, 52, 8, 6, 4, '#a3342f', { nx: 3 });
-        g.pool(18, 50, 15, 8, WARM, 0.34);
-        g.banner(W - 9, 8, 5.5, 9, s.team, { mark: 'wrench' });
-      },
-      anim: function (g, s) { sparks(g, 14 + 6 * A.hash01(Math.floor(s.t * 0.4) + s.seed, 1), 43, s.t + s.seed, '#cfe6ff'); },
-      lights: function (g, s) { if (A.hash01(Math.floor((s.t + s.seed) * 14), 3) > 0.45) g.puff(17, 44, 12, '#bcdcff', 0.5); },
     },
 
     // ---- Ad Tower: one cell of footprint, a hijacked billboard screen high on a lattice mast

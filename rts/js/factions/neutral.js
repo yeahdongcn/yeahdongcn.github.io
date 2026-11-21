@@ -15,7 +15,7 @@ NT.defineFaction({
   buildings: {
     noodlebar: {
       name: { en: 'Noodle Bar', zh: '面馆' },
-      desc: { en: 'Pays protection money: a steady trickle of scrap.', zh: '按时交保护费：稳定的小额废料收入。' },
+      desc: { en: 'Pays protection money: a steady trickle of Glint.', zh: '按时交保护费：稳定的小额碎金收入。' },
       role: 'turf', tags: ['turf'], hp: 900, size: [2, 2], sight: 4,
       traits: { capturable: {}, income: { amount: 30, every: 6 } },
       meta: { mapWeight: 4 },
@@ -41,26 +41,12 @@ NT.defineFaction({
       traits: { capturable: {}, recruit: { every: 45 } },
       meta: { mapWeight: 2 },
     },
-    substation: {
-      name: { en: 'Substation', zh: '变电站' },
-      desc: { en: 'Tap the city grid: free power for your base.', zh: '偷接城市电网：为基地提供免费电力。' },
-      role: 'turf', tags: ['turf'], hp: 1000, size: [2, 2], sight: 4, power: 60,
-      traits: { capturable: {} },
-      meta: { mapWeight: 0 },
-    },
     clinic: {
       name: { en: 'Back-Alley Clinic', zh: '黑诊所' },
       desc: { en: 'Patches up your people (and beasts) nearby.', zh: '为附近的己方人员（和野兽）疗伤。' },
       role: 'turf', tags: ['turf'], hp: 900, size: [2, 2], sight: 5,
       traits: { capturable: {}, aura: { radius: 5, affects: 'allies', tags: ['organic'], mods: { regen: 0.04 } } },
       meta: { mapWeight: 2 },
-    },
-    chopgarage: {
-      name: { en: 'Chop Garage', zh: '改装车行' },
-      desc: { en: 'Mechanics repair your vehicles and drones nearby.', zh: '技工为附近的己方车辆与无人机维修。' },
-      role: 'turf', tags: ['turf'], hp: 1000, size: [3, 2], sight: 5,
-      traits: { capturable: {}, aura: { radius: 5, affects: 'allies', tags: ['vehicle', 'drone'], mods: { regen: 0.03 } } },
-      meta: { mapWeight: 0 },
     },
     adtower: {
       name: { en: 'Ad Tower', zh: '广告塔' },

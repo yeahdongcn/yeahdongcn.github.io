@@ -40,6 +40,7 @@
 //
 // REPAIR: a building with ent.repairing heals rules.repairRate x maxHp / TPS per tick for rules.repairCost x
 // def.cost x healed / maxHp credits; it stops ('repair' event, on: false) at full health or when the money runs out.
+// A building that was never bought (def.cost 0: captured turf) is billed as if it had cost its maxHp.
 // ent.age counts the ticks a building has stood.
 // ============================================================================
 NT.Prod = {};
@@ -403,7 +404,7 @@ NT.Prod._repair = function (world, e) {
   const p = world.players[e.owner], R = world.rules;
   let done = !p || e.hp >= e.maxHp;
   if (!done) {
-    const heal = Math.min(R.repairRate * e.maxHp / NT.TPS, e.maxHp - e.hp), cost = R.repairCost * e.def.cost * heal / e.maxHp;
+    const heal = Math.min(R.repairRate * e.maxHp / NT.TPS, e.maxHp - e.hp), cost = R.repairCost * (e.def.cost || e.maxHp) * heal / e.maxHp;
     const paid = cost > 0 ? NT.Econ.spend(p, cost) : 0, frac = cost > 0 ? paid / cost : 1;
     NT.damage(world, e, -heal * frac, null, null, null);
     done = frac < 1 - NT.Prod.EPS || e.hp >= e.maxHp - NT.Prod.EPS;

@@ -14,20 +14,8 @@
   function slab(g, x, y, w, h, col) { g.rect(x, y, w, h, col || '#22272f', { lit: 0, bevel: -0.5, r: 1.2, ol: 'rgba(0,0,0,0.5)', lw: 0.5 }); }
   function stencil(g, x, y, w, h, col, seed) { g.scribble(x, y, w, h, col || 'rgba(232,228,214,0.55)', { seed: seed || 5, lw: 0.8, rows: Math.max(1, Math.round(h / 2.2)) }); }
 
-  // BRACED mark: crisp team chevrons on the ground around the unit (main pass only: never shadow / glow)
-  function brace(g, s, r, n, k) {
-    if (!g.vis()) return;
-    const c = g.ctx;
-    n = n || 6; k = k || 2.1;
-    c.save(); c.lineCap = 'butt'; c.lineJoin = 'miter'; c.beginPath();
-    for (let i = 0; i < n; i++) {
-      const a = i * TAU / n, co = Math.cos(a), si = Math.sin(a);
-      c.moveTo(co * r - si * k, si * r + co * k); c.lineTo(co * (r + k), si * (r + k)); c.lineTo(co * r + si * k, si * r - co * k);
-    }
-    c.strokeStyle = 'rgba(4,5,10,0.8)'; c.lineWidth = k + 0.5; c.stroke();
-    c.strokeStyle = s.team; c.lineWidth = k * 0.6; c.stroke();
-    c.restore();
-  }
+  // BRACED mark: not drawn here. The renderer puts a ring of chevrons in the owner's colour under every braced
+  // unit of any gang (render.js drawRings); art only adds what is physical (outriggers down, tripods).
 
   // tyres whose tread lines scroll with s.walk
   function wheels(g, xs, gauge, l, w, ph) {
@@ -531,7 +519,6 @@
       frames: 6, kick: 0.9, muzzle: [A.rigs.humanoidMuzzle({ build: 0.25, weapon: 'rifle' })],
       body: function (g, s) {
         const pal = s.pal, q = hg(0.25);
-        if (s.deployed) brace(g, s, 8.6, 4, 1.6);
         g.humanoid({ build: 0.25, cloth: pal.drab, sleeve: pal.drab, pad: s.team, head: 'helmet', headCol: A.shade(pal.drab, 0.12), stripe: s.team,
           chest: pal.canvas, pack: A.shade(pal.canvas, -0.2), boot: '#2c2a26', weapon: 'rifle', wcol: '#5a4a3a', walk: s.walk, moving: s.moving });
         g.capsule(0.9, q.SY - 0.6, 2.1, q.SY - 1.6, 1.25, s.team, { lit: 0.12, lw: 0.4 });            // armband on the trigger arm
@@ -544,7 +531,6 @@
       muzzle: [[12.2, 4.27]],
       body: function (g, s) {
         const pal = s.pal, q = hg(0.4), gy = q.sw * 0.62;
-        if (s.deployed) brace(g, s, 9.2, 4, 1.6);
         g.humanoid({ build: 0.4, cloth: pal.drab, sleeve: pal.drabDark, pad: s.team, head: 'bare', hair: '#c4c6cc', skin: '#c08d6a',
           pack: pal.canvas, chest: pal.drabDark, boot: '#2c2a26', weapon: 'launcher', wcol: pal.drab, walk: s.walk, moving: s.moving });
         g.rect(-8.5, gy - 2.6, 19.5, 5.2, A.shade(pal.drab, 0.1), { r: 1.2, lit: 0.2, lw: 0.6 });
@@ -627,7 +613,6 @@
       frames: 3, pivot: [-1, 0], muzzle: [[20, 0]], recoil: 1.8,
       body: function (g, s) {
         const pal = s.pal;
-        if (s.deployed) brace(g, s, 16.5);
         g.tracks(28, 15.5, 5.2, s.walk, { col: '#2e3139' });
         g.poly([-12.5, -6, -9.5, -8.8, 9.5, -8.8, 13, -5.4, 13, 5.4, 9.5, 8.8, -9.5, 8.8, -12.5, 6], pal.drab, { lit: 0.16 });
         g.rect(9.2, -5.4, 2.4, 10.8, s.team, { r: 0.4, lit: 0.12, lw: 0.45 });
@@ -652,7 +637,6 @@
       body: function (g, s) {
         const pal = s.pal, dep = s.deployed;
         if (dep) {
-          brace(g, s, 16.5);
           for (const X of [8, -11]) for (let sd = -1; sd <= 1; sd += 2) {
             g.rect(X - 0.8, sd > 0 ? 6 : -10.4, 1.6, 4.4, '#59616f', { lit: 0.1, lw: 0.4 });
             g.rect(X - 2, sd * 10.4 - 1.3, 4, 2.6, pal.steel, { r: 0.5, lit: 0.14, lw: 0.45 });
@@ -706,7 +690,6 @@
       frames: 3, pivot: [1, 0], muzzle: [[27, 0]], recoil: 2.4,
       body: function (g, s) {
         const pal = s.pal, BRONZE = '#5e6040', PATINA = '#71907c';
-        if (s.deployed) brace(g, s, 23);
         g.tracks(40, 21, 6.4, s.walk, { col: '#2e3139' });
         g.hull(37, 22, BRONZE, { nose: 4, tail: 2.5, nw: 0.74, lit: 0.16 });
         for (const q of [[5, -9.6, 8, 3.6], [-6, 6, 8, 3.6]]) g.rect(q[0], q[1], q[2], q[3], PATINA, { r: 0.8, lit: 0.1, bevel: 0.4, lw: 0.35 });
