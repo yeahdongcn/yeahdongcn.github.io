@@ -67,6 +67,8 @@
 //                cache key include it (detected automatically) — read them only if the sprite really changes
 //   s.dmg (0|1|2), s.powered, s.variant, s.rnd() / s.rnd(n)   seeded per def + variant
 //   live functions (anim, lights) additionally get the raw st: s.t, s.active, s.hp, s.facing, s.aim, s.seed ...
+//                s.boost / s.hinder: a helpful / harmful timed buff is running (surge, a support power, a slow) —
+//                LIVE ONLY: baked layers never see them (nor s.t, which is 0 while baking)
 //
 // TEAM COLOUR: every sprite must show s.team on >= ~20% of its top surface (pads, stripes, roof panels,
 // banners, lamps). Neutral structures simply receive a grey team colour.
@@ -97,7 +99,7 @@
 //                                      overlay pass owns them; NT.Art.drawRank(ctx, rank, r) draws the same mark).
 //   NOT drawn here: health bars, selection / brace / capture rings, projectiles — renderer and fx.
 //   st = { team:'#rrggbb', facing, aim, t, moving, walk, fire, hp, deployed, cargo, rank, powered, active,
-//          ghost, flash, seed, zoom, weapon }  — every field optional (see _newEnt in sim.js for the sources);
+//          ghost, flash, seed, zoom, weapon, boost, hinder }  — every field optional (see _newEnt in sim.js for the sources);
 //          zoom = camera zoom x devicePixelRatio; weapon = index of the weapon that fired (which muzzle flashes)
 //
 // CACHE: drawEntity / drawShadow / drawLights only BLIT. A sprite is rasterised the first time a combination
@@ -1569,7 +1571,7 @@
     s.team = sh.team; s.teamHi = sh.hi; s.teamLo = sh.lo; s.teamDk = sh.dk; s.teamInk = sh.ink;
     s.moving = q.frame > 0; s.walk = q.frame > 0 ? (q.frame - 0.5) / rt.frames : 0;
     s.dmg = q.dmg; s.powered = !q.off; s.variant = q.variant; s.rnd = A.rng(NT.hash32(rt.def.id, q.variant));
-    s.t = 0; s.active = false; s.hp = 1; s.facing = 0; s.aim = 0; s.seed = q.variant; s.rank = 0; s.zoom = 1;
+    s.t = 0; s.active = false; s.hp = 1; s.facing = 0; s.aim = 0; s.seed = q.variant; s.rank = 0; s.zoom = 1; s.boost = false; s.hinder = false;
     return s;
   }
   // What live functions (anim, lights) receive: one reused object, raw values.
@@ -1581,6 +1583,7 @@
     LS.hp = st.hp === undefined ? 1 : st.hp; LS.dmg = Q.dmg; LS.deployed = !!st.deployed; LS.cargo = st.cargo || 0;
     LS.rank = st.rank || 0; LS.powered = st.powered !== false; LS.active = !!st.active; LS.seed = st.seed | 0; LS.variant = Q.variant;
     LS.facing = st.facing || 0; LS.aim = st.aim === undefined ? LS.facing : st.aim; LS.zoom = st.zoom || 1;
+    LS.boost = !!st.boost; LS.hinder = !!st.hinder;
     return LS;
   }
 

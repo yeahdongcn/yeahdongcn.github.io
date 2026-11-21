@@ -70,7 +70,7 @@ NT.Game.ZOOM_MIN = 0.45;
 NT.Game.ZOOM_MAX = 2.5;
 NT.Game.SETTINGS_KEY = 'neonturf.settings.v1';     // this origin is shared with the other games: namespaced keys only
 NT.Game.DEFAULTS = { lang: null, sfx: 0.8, music: 0.5, mute: false, edgeScroll: true, speed: 1, hints: true,
-  faction: null, enemy: 'random', difficulty: 'normal', map: null };
+  faction: null, enemy: 'random', difficulty: 'easy', map: null };
 
 // ---------------------------------------------------------------------------
 // Settings

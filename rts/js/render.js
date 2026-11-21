@@ -117,7 +117,7 @@
       rx: 0, ry: 0, y: 0, lx: NaN, ly: 0, walk: 0, stride: 16, wi: 0, rr: 8,
       seenF: -9, selF: -9, rise: -1, diedAt: 0, bits: 0,
       st: { team: NEUTRAL, facing: 0, aim: 0, t: 0, moving: false, walk: 0, fire: 0, hp: 1, deployed: false, cargo: 0, rank: 0,
-        powered: true, active: false, ghost: undefined, flash: 0, seed: id, zoom: 1, weapon: 0 },
+        powered: true, active: false, ghost: undefined, flash: 0, seed: id, zoom: 1, weapon: 0, boost: false, hinder: false },
     };
   }
   function rec(id) { let r = recs.get(id); if (!r) { r = newRec(id); recs.set(id, r); } return r; }
@@ -158,6 +158,7 @@
     if (r.lx === r.lx) { const d = Math.hypot(x - r.lx, y - r.ly); if (d > 0 && d < 48) r.walk += d / r.stride; }   // a teleport is not a walk
     r.lx = r.rx = x; r.ly = r.ry = y;
     r.bits = e.buffs.length ? buffBits(e, world.tick) : 0;
+    st.boost = (r.bits & 1) !== 0; st.hinder = (r.bits & 2) !== 0;
     st.team = colorOf(world, e.owner);
     st.facing = lerpAng(e.pfacing, e.facing, a); st.aim = lerpAng(e.paim, e.aim, a);
     st.t = G.now; st.zoom = S; st.seed = e.id; st.weapon = r.wi; st.ghost = undefined;

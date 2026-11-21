@@ -43,10 +43,11 @@ NT.AI.MIN = 60 * NT.TPS;           // ticks per minute
 //   producers   max producers per unit queue   powers / harass / recapture     behaviour switches
 //   retreat     a wave below this fraction of its starting value falls back
 //   prodMul / incomeMul   handicaps (normal = 1 exactly: fair)
+//   grace       minutes before its first attack wave may leave (it still defends); easy only — a learning opponent
 NT.AI.LEVELS = {
-  easy:   { think: 40, harvesters: 4, maxDrop: 2, firstWave: 3000, waveGrow: 800, waveMax: 6000, allIn: 25,
+  easy:   { think: 40, harvesters: 3, maxDrop: 2, firstWave: 2500, waveGrow: 600, waveMax: 5000, allIn: 30, grace: 7,
             defences: 1, lateDefences: 1, producers: 1, powers: false, harass: false, recapture: false,
-            retreat: 0.25, prodMul: 0.75, incomeMul: 0.8, depth: 1 },
+            retreat: 0.25, prodMul: 0.65, incomeMul: 0.65, depth: 1 },
   normal: { think: 20, harvesters: 6, maxDrop: 3, firstWave: 5000, waveGrow: 1500, waveMax: 12000, allIn: 20,
             defences: 3, lateDefences: 2, producers: 2, powers: true, harass: false, recapture: true,
             retreat: 0.35, prodMul: 1, incomeMul: 1, depth: 2 },
@@ -855,6 +856,7 @@ NT.AI._waves = function (world, B, p) {
   let gv = 0;
   for (const e of k.army) if (B.role[e.id] === 'idle') { idle.push(e); if (A._cdist(e, B.rally.cx, B.rally.cy) < 12) gv += e.def.cost; }
   if (!B.wave) {
+    if (tick < (lv.grace || 0) * A.MIN) return;
     const late = tick - B.lastWave > 5 * A.MIN && gv >= thr * 0.5;
     const strong = gv >= thr && gv >= B.foeSeen * 1.1;
     if (idle.length && (strong || late || (allIn && gv >= thr * 0.4))) {
